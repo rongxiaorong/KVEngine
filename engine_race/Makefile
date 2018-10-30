@@ -42,7 +42,7 @@ SRC_PATH = $(CURDIR)
 
 # ----------------Dependences-------------------
 
-INCLUDE_PATH = -I./ 
+INCLUDE_PATH = -I./include 
 
 # ---------------End Dependences----------------
 

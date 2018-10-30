@@ -28,7 +28,7 @@ public:
     }
     size_t size() {return _size;}
     size_t remain() {return _size - _cur;}
-    void clear() {_cur = 0;};
+    void clear() {_cur = 0;}
     ~MemAllocator() {
         _delete();
     };

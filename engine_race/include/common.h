@@ -1,17 +1,17 @@
 // common.h
-#ifndef _HMDB_COMMON_H_
-#define _HMDB_COMMON_H_
+#ifndef _ENGINE_RACE_COMMON_H_
+#define _ENGINE_RACE_COMMON_H_
 
 #include <iostream>
 #include <stdio.h>
 #include <string>
 #include <time.h>
-
+#include <stdarg.h>
 #include "config.h"
 
 namespace polar_race {
 using std::cout;
-void DEBUG(char* format, ...) {
+void DEBUG(const char* format, ...) {
     va_list args;
     va_start(args, format);
     cout << time(NULL) << " DEBUG:";
@@ -20,7 +20,7 @@ void DEBUG(char* format, ...) {
     va_end(args);
 }
 
-void INFO(char* format, ...) {
+void INFO(const char* format, ...) {
     va_list args;
     va_start(args, format);
     cout << time(NULL) << " INFO:";
@@ -29,7 +29,7 @@ void INFO(char* format, ...) {
     va_end(args);
 }
 
-void ERROR(char* format, ...) {
+void ERROR(const char* format, ...) {
     va_list args;
     va_start(args, format);
     cout << time(NULL) << " ERROR:";
@@ -39,4 +39,4 @@ void ERROR(char* format, ...) {
 }
 }
 
-#endif // _HMDB_COMMON_H_
+#endif // _ENGINE_RACE_COMMON_H_
