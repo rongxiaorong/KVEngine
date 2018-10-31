@@ -76,13 +76,18 @@ bool MemTable::contains(const PolarString& key) {
 }
 
 RetCode MemTable::write(const PolarString& key, const PolarString& value) {
-    if (contains(key))
-        return _update(key, value);
+    _on_writing ++;
+    RetCode ret;
+    if (contains(key)) 
+        ret = _update(key, value);
     else 
-        return _write(key, value);
+        ret = _write(key, value);
+    
+    _on_writing --;
+    _on_writing_cv.notify_one();
+    
+    return ret;    
 }   
-
-
 
 
 

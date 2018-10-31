@@ -3,6 +3,8 @@
 
 namespace polar_race {
 
+std::string ENGINE_DIR;
+
 RetCode Engine::Open(const std::string& name, Engine** eptr) {
   return EngineRace::Open(name, eptr);
 }
@@ -21,6 +23,11 @@ RetCode EngineRace::Open(const std::string& name, Engine** eptr) {
 
   *eptr = engine_race;
   return kSucc;
+}
+
+EngineRace::EngineRace(const std::string& dir) {
+  // initilize the engine
+  
 }
 
 // 2. Close engine

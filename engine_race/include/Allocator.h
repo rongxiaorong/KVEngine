@@ -4,7 +4,7 @@
 
 #include <unistd.h>
 #include "config.h"
-#include "common.h"
+#include "util.h"
 
 namespace polar_race {
 class MemAllocator {

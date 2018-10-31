@@ -17,12 +17,12 @@ RetCode DataLog::log(PolarString& key, PolarString& value, int _id) {
     WritableFile* log_file = log_files[_id];
     
     // This will be updated as batch write
-    int key_size = key.size();
-    int value_size = value.size();
+    size_t key_size = key.size();
+    size_t value_size = value.size();
 
-    ASSERT(log_file->append((char*)&key_size, sizeof(int)));
+    ASSERT(log_file->append((char*)&key_size, sizeof(size_t)));
     ASSERT(log_file->append(key.data(), key.size()));
-    ASSERT(ret = log_file->append((char*)&value_size, sizeof(int))); 
+    ASSERT(ret = log_file->append((char*)&value_size, sizeof(size_t))); 
     ASSERT(ret = log_file->append(value.data(), value.size()))
     ASSERT(ret = log_file->flush());
 
@@ -34,7 +34,7 @@ RetCode DataLog::createLog(int _id) {
         return RetCode::kNotFound;
     // get log file name
     std::stringstream sstream;
-    sstream << LOG_FILE_NAME << "_" << _id;
+    sstream << LOG_FILE_NAME << _id;
     std::string log_name;
     sstream >> log_name;
     
@@ -52,7 +52,7 @@ RetCode DataLog::deleteLog(int _id) {
     // when a SStable is completely flush into the disk
     // so that the logfile is useless.
     std::stringstream sstream;
-    sstream << LOG_FILE_NAME << "_" << _id;
+    sstream << LOG_FILE_NAME << _id;
     std::string log_name;
     sstream >> log_name;
 
@@ -68,14 +68,43 @@ RetCode DataLog::deleteLog(int _id) {
     return RetCode::kSucc;
 }
 
-RetCode DataLog::recover() {
+// RetCode DataLog::recover() {
     // two conditions
     // 1. log exists, sstable exists -> delete sstable, write a new one
-    // 2. log exists, sstable not exists  -> write into MemTable
+    // 2. log exists, sstable not exists  -> write into MemTable  
+// }
+
+RetCode DataLog::recover(MemTable* table) {
+
+    std::stringstream sstream;
+    sstream << LOG_FILE_NAME << table->id();
+    std::string log_name;
+    sstream >> log_name;
+
+    SquentialFile file;
+    ASSERT(file.open(log_name));
     
-    
+    size_t size;
+    char kbuf[1024];
+    char vbuf[8096];
+    while(true) {
+        size_t read_size;
+        // read key
+        file.read((char*)&size, sizeof(size_t), read_size);
+        if (read_size == 0)
+            break;
+        file.read(kbuf, size, read_size);
+        PolarString key(kbuf, size);
+
+        file.read((char*)&size, sizeof(size_t), read_size);
+        file.read(vbuf, size, read_size);
+        PolarString value(vbuf, size);
+
+        if(table->write(key, value) != RetCode::kSucc)
+            ERROR("DataLog::recover(%d) can't write.", table->id());
+    }
+
+    return RetCode::kSucc;
 }
-
-
 
 } // namespace polar_race

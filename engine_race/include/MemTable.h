@@ -2,22 +2,24 @@
 #ifndef _ENGINE_RACE_MEMTABLE_H_
 #define _ENGINE_RACE_MEMTABLE_H_
 
-#include "common.h"
+#include "util.h"
 #include "config.h"
 #include "engine.h"
 #include "skiplist/sl_map.h"
 #include <atomic>
 #include <mutex>
+#include <condition_variable>
 #include <list>
 #include <string>
 
 namespace polar_race {
 using std::string;
 
-int TABLE_COUNT;
+int TABLE_COUNT = 0;
 
 class MemTable {
 public:
+
     static MemTable* getMemtable();
     static MemTable* getImmut();
 
@@ -32,7 +34,7 @@ public:
     
     bool contains(const PolarString& key);
 
-    RetCode read(const PolarString& key, PolarString& value);
+    RetCode read(const PolarString& key, string* value);
     
     int id(){return _id;}
 
@@ -49,6 +51,10 @@ private:
 
     std::atomic_long size;
 
+    std::atomic_int _on_writing;
+    std::condition_variable _on_writing_cv;
+
+
     std::mutex _write_mtx;
     RetCode _write(const PolarString& key, const PolarString& value);
     
@@ -56,6 +62,9 @@ private:
     
     bool _immut = false;
     void setImmutable();
+    
+    friend class TableWriter;
 };
+
 } // namespace polar_race
 #endif //_ENGINE_RACE_MEMTABLE_H_

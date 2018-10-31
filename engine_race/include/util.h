@@ -105,6 +105,7 @@ public:
             _fd = -1;
         }
     };
+    size_t size() { return _data_size + _buf_size;}
     ~WritableFile() {
         close();
     }
@@ -128,7 +129,66 @@ private:
 };
 
 class SquentialFile {
+public:
+    SquentialFile(int fd):_fd(fd){}
+    SquentialFile():_fd(-1){}
+    RetCode open(const string &file) {
+        int fd = ::open(file.c_str(), O_RDONLY);
+        return open(fd);
+    }
+    RetCode open(int fd) {
+        if (fd < 0) {
+            ERROR("SquentialFile::open() open a wrong file.");
+            return RetCode::kIOError;
+        }
+        else {
+            _fd = fd;
+            return RetCode::kSucc;
+        }
+    }
+    RetCode read(char* dst, const size_t &size, size_t &ret_size) {
+        if (_fd < 0) {
+            ERROR("SquentialFile::read() open a wrong file.");
+            return RetCode::kIOError;
+        }
+        if (size <= _buf_size - _buf_pos) {
+            // have cache
+            memcpy(dst, _buf + _buf_pos, size);
+            ret_size = size;
+            _buf_pos += size;
+            return RetCode::kSucc;
+        }
 
+        // preload the buffer
+        _read();
+
+        size_t temp = size;
+        while (temp > 0 && _buf_size > 0) {
+            // copy as much as possible
+            size_t cp_size = std::min<size_t>(_buf_size - _buf_pos, temp);
+            memcpy(dst, _buf + _buf_pos, cp_size);
+            _buf_pos += cp_size;
+            temp -= cp_size;
+            // load again
+            _read();
+        }
+        ret_size = size - temp;
+        return RetCode::kSucc;
+    }
+private:
+    RetCode _read() {
+        if (_buf_size == _buf_pos) { 
+            _buf_size = ::read(_fd, _buf, MAX_BUFFER_SIZE);
+            _buf_pos = 0;
+        }
+        return RetCode::kSucc;
+    }
+    const static size_t MAX_BUFFER_SIZE = 64 * 1024;
+    int _fd;
+    size_t _data_pos = 0;
+    size_t _buf_pos = 0;
+    size_t _buf_size = 0;
+    char _buf[MAX_BUFFER_SIZE];
 };
 
 }// namespace polar_race

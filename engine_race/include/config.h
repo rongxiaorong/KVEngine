@@ -19,4 +19,12 @@
 
 #define LOG_FILE_NAME "DBLOG"
 
+#define SSTABLE_FILE_NAME "SSTABLE"
+
+#define MAGIC_STRING "XIAOCONG"
+
+#include <string>
+namespace polar_race {
+std::string ENGINE_DIR;
+} // namespace polar_race
 #endif // _ENGINE_RACE_CONFIG_H_
