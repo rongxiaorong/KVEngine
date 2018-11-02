@@ -77,4 +77,29 @@ RetCode TableWriter::_write_magic() {
     return RetCode::kSucc;
 }
 
+RetCode TableReader::open(int table_id) {
+    // open the sstable with _id
+    
+    // get sstable name
+    std::stringstream sstream;
+    sstream << SSTABLE_FILE_NAME << table_id;
+    std::string table_name; 
+    sstream >> table_name;
+
+    ASSERT(_file->open(table_name));
+
+    _id = table_id;
+    return RetCode::kSucc;
+}
+
+// RetCode
+
+RetCode TableReader::read(const std::string &key, std::string &value) {
+    if (_file == nullptr) {
+        ERROR("TableRader::read() read unopen file.");
+        return RetCode::kNotFound;
+    }
+
+}
+
 } // namespace polar_race

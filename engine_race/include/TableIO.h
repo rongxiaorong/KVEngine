@@ -2,6 +2,7 @@
 #ifndef _ENGINE_RACE_TABLEIO_H_
 #define _ENGINE_RACE_TABLEIO_H_
 
+#include <atomic>
 #include "util.h"
 #include "../../include/engine.h"
 #include "MemTable.h"
@@ -30,5 +31,26 @@ private:
     //
 };
 
+// reader for sstable
+// shared reader
+
+class TableReader {
+public:
+    // check cache before this
+    TableReader():_file(nullptr):_using(0){}
+    
+    RetCode open(int id);
+
+    RetCode checkFilter(const string& key);
+    
+    RetCode read(const string& key, string& value);
+
+private:
+    // RetCode 
+    atomic_int _using;
+    int _id;
+    RandomAccessFile* _file;
+    
+};
 } // namespace polar_race
 #endif //#ifndef _ENGINE_RACE_TABLEIO_H_
