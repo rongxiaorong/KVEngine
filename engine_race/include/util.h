@@ -15,10 +15,17 @@
 
 namespace polar_race {
 
-#define ASSERT(A) do{RetCode ret;if((ret = (A))!=RetCode::kSucc) return ret;}while(0)
+#define ASSERT(A)                     \
+do {                                  \
+    RetCode ret;                      \
+    if((ret = (A))!=RetCode::kSucc) { \
+        ERROR(#A);                    \
+        return ret;                   \
+    }                                 \
+}while(0)                             \
 
 using std::cout;
-
+using std::string;
 void DEBUG(const char* format, ...) {
     va_list args;
     va_start(args, format);
@@ -248,11 +255,40 @@ private:
 
 class RandomAccessFile {
 public:
-    RandomAccessFile();
-
+    RandomAccessFile():_fd(-1){}
+    ~RandomAccessFile() {
+        this->close();
+    }
+    RetCode open(const string &file) {
+        int fd = ::open(file.c_str());
+        return open(fd);
+    }
+    RetCode open(const int &fd) {
+        if (fd < 0) {
+            ERROR("RandomAccessFile::open() fail");
+            return RetCode::kIOError;
+        }
+        _fd = fd;
+        return RetCode::kSucc;
+    }
+    RetCode read(void* buf, const size_t &begin, const size_t &len) {
+        if (_fd < 0)
+            return RetCode::kNotFound;
+        ssize_t ret = ::pread(_fd, buf, len, begin);
+        if (len != ret)
+            INFO("RandomAccessFile::read() try to read %d bytes, but get %d bytes", (int)len, (int)ret);
+        if (ret <= 0)
+            return RetCode::kIOError;
+        return RetCode::kSucc;
+    }
+    RetCode close() {
+        if (_fd > 0)
+            ::close(_fd);
+        return RetCode::kSucc;
+    }
 private:
     int _fd;
-}
+};
 
 }// namespace polar_race
 
