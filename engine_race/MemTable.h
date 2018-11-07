@@ -25,7 +25,7 @@ public:
     static MemTable* getImmut();
 
     MemTable(){
-        _filter = new BloomFilter(10*1024*1024,MEMTABLE_MAX_SIZE/4096);
+        _filter = new BloomFilter(FILTER_SIZE, MEMTABLE_MAX_SIZE/4096);
         _id = TABLE_COUNT;
         TABLE_COUNT++;
     }

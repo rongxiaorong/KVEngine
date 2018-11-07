@@ -27,6 +27,7 @@
 
 #define MAX_BLOCK_CACHE 5
 
+#define FILTER_SIZE 8*1024*1024
 #include <string>
 
 namespace polar_race {

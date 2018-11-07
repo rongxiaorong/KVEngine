@@ -24,14 +24,14 @@ BloomFilter* FilterCache::getFilter(int id) {
     return nullptr;
 }
 
-RetCode LRUCache::read(int table_id, const string &key, string &value) {
+RetCode IndexCache::read(int table_id, const string &key, string &value) {
     std::lock_guard<std::mutex> guard(_mtx);
     for (auto iter = _list.begin(); iter != _list.end(); iter++) {
         if (table_id != (*iter)->_table_id)
             continue;
         if ((*iter)->read(key, value) == RetCode::kSucc) {
             // find value
-            DataBlock* tmp = *iter;
+            IndexBlock* tmp = *iter;
             _list.erase(iter);
             _list.push_front(tmp);
             return RetCode::kSucc;
@@ -40,11 +40,11 @@ RetCode LRUCache::read(int table_id, const string &key, string &value) {
     return RetCode::kNotFound;
 }
 
-RetCode LRUCache::cache(DataBlock* block) {
+RetCode IndexCache::cache(IndexBlock* block) {
     std::lock_guard<std::mutex> guard(_mtx);
     
     if (_list.size() >= MAX_BLOCK_CACHE) {
-        DataBlock* old = _list.back();
+        IndexBlock* old = _list.back();
         _list.pop_back();
         _list.push_back(block);
         delete old;

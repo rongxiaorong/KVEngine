@@ -22,18 +22,18 @@ private:
 
 extern FilterCache filterCache;
 
-class LRUCache {
+class IndexCache {
 public:
     RetCode read(int table_id, const string &key, string &value);
-    RetCode cache(DataBlock* block);
+    RetCode cache(IndexBlock* block);
 private:
     std::mutex _mtx;
-    std::list<DataBlock*> _list;
+    std::list<IndexBlock*> _list;
 };
 
-class DataBlock {
+class IndexBlock {
 public:
-    friend class LRUCache;
+    friend class IndexCache;
     RetCode read(const string &key, string &value);
 private:
     int _table_id;
