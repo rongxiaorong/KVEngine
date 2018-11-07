@@ -23,7 +23,12 @@
 
 #define MAGIC_STRING "XIAOCONG"
 
+#define MAX_FILTER_CACHE 5
+
+#define MAX_BLOCK_CACHE 5
+
 #include <string>
+
 namespace polar_race {
 std::string ENGINE_DIR;
 } // namespace polar_race

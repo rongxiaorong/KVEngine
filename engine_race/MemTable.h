@@ -4,13 +4,13 @@
 
 #include "util.h"
 #include "config.h"
-#include "engine.h"
-#include "skiplist/sl_map.h"
+#include "../include/engine.h"
 #include "BloomFilter.h"
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
 #include <list>
+#include <map>
 #include <string>
 
 namespace polar_race {
@@ -25,7 +25,7 @@ public:
     static MemTable* getImmut();
 
     MemTable(){
-        _filter.init(10*1024*1024,MEMTABLE_MAX_SIZE/4096);
+        _filter = new BloomFilter(10*1024*1024,MEMTABLE_MAX_SIZE/4096);
         _id = TABLE_COUNT;
         TABLE_COUNT++;
     }
@@ -49,8 +49,8 @@ private:
     
     int _id;
 
-    sl_map<string, string*> index;
-    BloomFilter _filter;
+    std::map<string, string*> index;
+    BloomFilter* _filter;
 
     std::atomic_long size;
 
@@ -67,6 +67,7 @@ private:
     void setImmutable();
     
     friend class TableWriter;
+    friend RetCode writeImmutTable(MemTable* table);
 };
 
 } // namespace polar_race

@@ -3,6 +3,7 @@
 #include "DataLog.h"
 #include <sstream>
 #include <stdio.h>
+
 namespace polar_race {
 
 std::map<int, WritableFile*> DataLog::log_files;
@@ -22,9 +23,9 @@ RetCode DataLog::log(PolarString& key, PolarString& value, int _id) {
 
     ASSERT(log_file->append((char*)&key_size, sizeof(size_t)));
     ASSERT(log_file->append(key.data(), key.size()));
-    ASSERT(ret = log_file->append((char*)&value_size, sizeof(size_t))); 
-    ASSERT(ret = log_file->append(value.data(), value.size()))
-    ASSERT(ret = log_file->flush());
+    ASSERT(log_file->append((char*)&value_size, sizeof(size_t))); 
+    ASSERT(log_file->append(value.data(), value.size()));
+    ASSERT(log_file->flush());
 
     return RetCode::kSucc;
 }

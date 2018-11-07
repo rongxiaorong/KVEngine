@@ -3,7 +3,7 @@
 #ifndef _POLAR_RACE_UTIL_H_
 #define _POLAR_RACE_UTIL_H_
 
-#include "../../include/engine.h"
+#include "../include/engine.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -11,6 +11,7 @@
 #include <string>
 #include <time.h>
 #include <stdarg.h>
+#include <sstream>
 #include "config.h"
 
 namespace polar_race {
@@ -53,6 +54,16 @@ void ERROR(const char* format, ...) {
     va_end(args);
 }
 
+int getSSTableNum() {
+    for (int i = 0;; i++) {
+        std::stringstream sstream;
+        sstream << SSTABLE_FILE_NAME << i;
+        std::string table_name; 
+        sstream >> table_name;
+        if (access(table_name.c_str(), F_OK) == -1)
+            return i;
+    }
+}
 
 class WritableFile {
 public:
@@ -208,50 +219,51 @@ private:
     char _buf[MAX_BUFFER_SIZE];
 };
 
-class MmapFile {
-public:
-    MmapFile():_fd(-1):_size(0){}
-    ~MmapFile() {close();}
-    RetCode open(const string &file) {
-        int fd = ::open(file.c_str(), O_RDONLY);
-        return open(fd);
-    }
-    RetCode open(int fd) {
-        if (fd < 0) {
-            ERROR("MmapFile::open() open a wrong file.");
-            return RetCode::kIOError;
-        }
-        else {
-            _fd = fd;
-            size_t map_size = 100;
-            _ptr = mmap(NULL, map_size, PROT_READ, MAP_SHARED, _fd, 0);
-            if (_ptr == nullptr) {
-                ERROR("MmapFile::open() mmap error.");
-                return RetCode::kIOError;
-            }
-            return RetCode::kSucc;
-        }
-    }
-    RetCode read(char* buf, const size_t &begin, const size_t &len) {
-        if (_ptr == nullptr)
-            return RetCode::kIOError;
-        memcpy(buf, _ptr + begin, len);
-        return RetCode::kSucc;
-    }
-    size_t size() {
-        return _size;
-    }
-    RetCode close() {
-        if (_fd > 0) {
-            ::close(_fd);
-            _fd = -1;
-        }
-        return RetCode::kSucc;
-    }
-private:
-    char* _ptr;
-    size_t _size;
-};
+// class MmapFile {
+// public:
+//     MmapFile():_fd(-1):_size(0){}
+//     ~MmapFile() {close();}
+//     RetCode open(const string &file) {
+//         int fd = ::open(file.c_str(), O_RDONLY);
+//         return open(fd);
+//     }
+//     RetCode open(int fd) {
+//         if (fd < 0) {
+//             ERROR("MmapFile::open() open a wrong file.");
+//             return RetCode::kIOError;
+//         }
+//         else {
+//             _fd = fd;
+//             size_t map_size = 100;
+//             _ptr = mmap(NULL, map_size, PROT_READ, MAP_SHARED, _fd, 0);
+//             if (_ptr == nullptr) {
+//                 ERROR("MmapFile::open() mmap error.");
+//                 return RetCode::kIOError;
+//             }
+//             return RetCode::kSucc;
+//         }
+//     }
+//     RetCode read(char* buf, const size_t &begin, const size_t &len) {
+//         if (_ptr == nullptr)
+//             return RetCode::kIOError;
+//         memcpy(buf, _ptr + begin, len);
+//         return RetCode::kSucc;
+//     }
+//     size_t size() {
+//         return _size;
+//     }
+//     RetCode close() {
+//         if (_fd > 0) {
+//             ::close(_fd);
+//             _fd = -1;
+//         }
+//         return RetCode::kSucc;
+//     }
+// private:
+//     char* _ptr;
+//     size_t _size;
+//     int _fd;
+// };
 
 class RandomAccessFile {
 public:
@@ -260,7 +272,7 @@ public:
         this->close();
     }
     RetCode open(const string &file) {
-        int fd = ::open(file.c_str());
+        int fd = ::open(file.c_str(), O_RDONLY);
         return open(fd);
     }
     RetCode open(const int &fd) {

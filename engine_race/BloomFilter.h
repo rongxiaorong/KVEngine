@@ -5,13 +5,14 @@
 #include <string>
 #include <bitset> 
 
-
 namespace polar_race {
+
 class BloomFilter {
 public:
     // size (bits) for an entry
+	BloomFilter(){}
     BloomFilter(int entry_size  /* m */, int entry_inserts  /* n */);
-
+	void init(int entry_size  /* m */, int entry_inserts  /* n */);
     void set(const std::string src);
     
     bool get(const std::string src);

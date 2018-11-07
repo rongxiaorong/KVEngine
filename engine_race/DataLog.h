@@ -2,8 +2,8 @@
 #ifndef _ENGINE_RACE_LOG_H_
 #define _ENGINE_RACE_LOG_H_
 
-#include "../../include/polar_string.h"
-#include "../../include/engine.h"
+#include "../include/polar_string.h"
+#include "../include/engine.h"
 #include "MemTable.h"
 #include "util.h"
 #include <map>

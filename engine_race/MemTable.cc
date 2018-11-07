@@ -1,6 +1,9 @@
 #include "MemTable.h"
 #include "TableIO.h"
+#include "DataLog.h"
 #include <mutex>
+#include <thread>
+
 using std::string;
 namespace polar_race {
 
@@ -33,13 +36,13 @@ void MemTable::setImmutable() {
     immut = _mutable;
     
     // call immut collect thread
-    thread immut_writer(writeImmutTable, this);
+    std::thread immut_writer(writeImmutTable, this);
     immut_writer.detach();
 
     immut_mtx.unlock();
 
     _mutable = new MemTable();
-    
+    DataLog::createLog(_mutable->_id);
 }
 
 RetCode MemTable::_write(const PolarString& key, const PolarString& value) {
@@ -54,7 +57,7 @@ RetCode MemTable::_write(const PolarString& key, const PolarString& value) {
         index.insert(std::pair<string, string*>(_key, new_v));
         size += value.size();
         size += key.size();
-        _filter.set(_key);
+        _filter->set(_key);
         if (size > MEMTABLE_MAX_SIZE) 
             setImmutable();
 
@@ -86,6 +89,7 @@ bool MemTable::contains(const PolarString& key) {
 RetCode MemTable::write(const PolarString& key, const PolarString& value) {
     _on_writing ++;
     RetCode ret;
+
     if (contains(key)) 
         ret = _update(key, value);
     else 

@@ -1,4 +1,4 @@
-#include "include/BloomFilter.h"
+#include "BloomFilter.h"
 #include <memory.h>
 
 
@@ -34,7 +34,15 @@ namespace polar_race
 			
 		bits[index / blockLen] = data;
 	}
-	
+	void BloomFilter::init(int entry_size  /* m */, int entry_inserts  /* n */) {
+		this->bitsetSize = entry_size;
+		this->sumHashFunction = (int)((double)entry_size / (double)entry_inserts * ln2);
+		this->sumHashFunction %= maxFunctions;
+		//bool* temp = new bool[this->bitsetSize];
+		//memset(temp, false, sizeof(bool) * this->bitsetSize);  // set as 0
+		this->dataPointer = bitArray(this->bitsetSize);
+		//this->dataPointer = temp;
+	}
     BloomFilter::BloomFilter(int entry_size  /* m */, int entry_inserts  /* n */)
     {
     	// k = ln2 * (m/n)
