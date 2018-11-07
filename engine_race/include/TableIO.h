@@ -9,6 +9,8 @@
 #include "config.h"
 namespace polar_race {
 
+void writeImmutTable(MemTable* table);
+
 class TableWriter {
 public:
     TableWriter(MemTable* table);
@@ -22,12 +24,13 @@ private:
     size_t* index;
     RetCode _write_data();
     RetCode _write_index();
-    RetCode _write_magic();
+    RetCode _write_footer();
     RetCode _write_bloomfilter();
     //
     // DataBlock [size_t keysize][...key][size_t valuesize][...value]
     // IndexBlock [size_t k1][size_t k2]...
-    // FooterBlock [size_t size][magic.size MagicString]
+    // FilterBlock [bits...]
+    // FooterBlock [size_t index_size][size_t filter_size][magic.size MagicString]
     //
 };
 

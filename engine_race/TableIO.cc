@@ -9,6 +9,14 @@
 
 namespace polar_race {
 
+RetCode writeImmutTable(MemTable* table) {
+    // wait for all writers of the table
+    while(table->_on_writing);
+    TableWriter tableWriter(table);
+    ASSERT(tableWriter.open());
+    ASSERT(tableWriter.write());
+}
+
 TableWriter::TableWriter(MemTable* table) {
     _table = table;
     _file = nullptr;
@@ -37,7 +45,8 @@ RetCode TableWriter::write() {
     }
     ASSERT(_write_data());
     ASSERT(_write_index());
-    ASSERT(_write_magic());
+    ASSERT(_write_bloomfilter());
+    ASSERT(_write_footer());
     
     ASSERT(_file->flush());
     ASSERT(_file->close());
@@ -64,14 +73,21 @@ RetCode TableWriter::_write_data() {
 }
 
 RetCode TableWriter::_write_index() {
-    size_t size = _table->index.size();
     ASSERT(_file->append((char *)index, sizeof(size_t) * _table->index.size()));
-    ASSERT(_file->append((char *)&size, sizeof(size_t)));
     return RetCode::kSucc;
 
 }
 
-RetCode TableWriter::_write_magic() {
+RetCode TableWriter::_write_bloomfilter() {
+    ASSERT(_file->append((char* )_table->_filter.data(), _table->_filter.size()));
+    return RetCode::kSucc;
+}
+
+RetCode TableWriter::_write_footer() {
+    size_t index_size = _table->index.size();
+    size_t filter_size = _table->_filter.size();
+    ASSERT(_file->append((char*)&index_size, sizeof(size_t)));
+    ASSERT(_filt->append((char*)&filter_size, sizeof(size_t)));
     string magic(MAGIC_STRING);
     ASSERT(_file->append(magic.c_str(), magic.size()));
     return RetCode::kSucc;

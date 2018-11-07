@@ -1,4 +1,5 @@
 #include "MemTable.h"
+#include "TableIO.h"
 #include <mutex>
 using std::string;
 namespace polar_race {
@@ -24,12 +25,17 @@ MemTable* MemTable::getImmut() {
 void MemTable::setImmutable() {
     std::lock_guard<std::mutex> guard(table_mtx);
 
+    // make sure each memtable call this function only once
     if (this->_immut) return;
     this->_immut = true;
 
     immut_mtx.lock();
     immut = _mutable;
+    
     // call immut collect thread
+    thread immut_writer(writeImmutTable, this);
+    immut_writer.detach();
+
     immut_mtx.unlock();
 
     _mutable = new MemTable();
@@ -48,8 +54,10 @@ RetCode MemTable::_write(const PolarString& key, const PolarString& value) {
         index.insert(std::pair<string, string*>(_key, new_v));
         size += value.size();
         size += key.size();
+        _filter.set(_key);
         if (size > MEMTABLE_MAX_SIZE) 
             setImmutable();
+
     }
     return RetCode::kSucc;
 }

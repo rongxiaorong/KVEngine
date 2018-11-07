@@ -6,6 +6,7 @@
 #include "config.h"
 #include "engine.h"
 #include "skiplist/sl_map.h"
+#include "BloomFilter.h"
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
@@ -24,6 +25,7 @@ public:
     static MemTable* getImmut();
 
     MemTable(){
+        _filter.init(10*1024*1024,MEMTABLE_MAX_SIZE/4096);
         _id = TABLE_COUNT;
         TABLE_COUNT++;
     }
@@ -48,6 +50,7 @@ private:
     int _id;
 
     sl_map<string, string*> index;
+    BloomFilter _filter;
 
     std::atomic_long size;
 
