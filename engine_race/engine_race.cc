@@ -4,9 +4,10 @@
 #include "DataLog.h"
 #include "MemTable.h"
 #include "TableIO.h"
+#include "config.h"
 namespace polar_race {
 
-std::string ENGINE_DIR;
+// std::string ENGINE_DIR;
 
 RetCode Engine::Open(const std::string& name, Engine** eptr) {
   return EngineRace::Open(name, eptr);
@@ -27,13 +28,16 @@ RetCode EngineRace::Open(const std::string& name, Engine** eptr) {
   *eptr = engine_race;
   return kSucc;
 }
-int TABLE_COUNT = 0;
 
+int TABLE_COUNT = 0;
+std::string __engine_dir;
 EngineRace::EngineRace(const std::string& dir) {
   // initilize the engine
+  __engine_dir.assign(dir);
   INFO("Initializing...");
   int sstable_num = getSSTableNum();
   int i = sstable_num - 1;
+  DEBUG("%d",i);
   while (!testSSTable(i)) {
     // invalid table
     INFO("Recovering table%d", i);

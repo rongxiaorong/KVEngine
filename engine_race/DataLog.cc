@@ -35,7 +35,7 @@ RetCode DataLog::createLog(int _id) {
         return RetCode::kNotFound;
     // get log file name
     std::stringstream sstream;
-    sstream << LOG_FILE_NAME << _id;
+    sstream << __engine_dir << "/" <<LOG_FILE_NAME << _id;
     std::string log_name;
     sstream >> log_name;
     
@@ -53,7 +53,7 @@ RetCode DataLog::deleteLog(int _id) {
     // when a SStable is completely flush into the disk
     // so that the logfile is useless.
     std::stringstream sstream;
-    sstream << LOG_FILE_NAME << _id;
+    sstream <<  __engine_dir << "/" << LOG_FILE_NAME << _id;
     std::string log_name;
     sstream >> log_name;
 
@@ -78,7 +78,7 @@ RetCode DataLog::deleteLog(int _id) {
 RetCode DataLog::recover(MemTable* table) {
 
     std::stringstream sstream;
-    sstream << LOG_FILE_NAME << table->id();
+    sstream <<  __engine_dir << "/" << LOG_FILE_NAME << table->id();
     std::string log_name;
     sstream >> log_name;
 

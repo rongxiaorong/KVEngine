@@ -64,7 +64,7 @@ RetCode TableWriter::open() {
 
     // get table name
     std::stringstream sstream;
-    sstream << SSTABLE_FILE_NAME << id;
+    sstream <<  __engine_dir << "/" << SSTABLE_FILE_NAME << id;
     std::string table_name; 
     sstream >> table_name;
 
@@ -145,7 +145,7 @@ RetCode TableReader::open(int table_id) {
     
     // get sstable name
     std::stringstream sstream;
-    sstream << SSTABLE_FILE_NAME << table_id;
+    sstream <<  __engine_dir << "/" << SSTABLE_FILE_NAME << table_id;
     std::string table_name; 
     sstream >> table_name;
 

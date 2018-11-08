@@ -28,80 +28,109 @@ do {                                  \
 
 using std::cout;
 using std::string;
-void DEBUG(const char* format, ...) {
-    va_list args;
-    va_start(args, format);
-    cout << time(NULL) << " DEBUG:";
-    vprintf(format, args);
-    cout << "\n";
-    va_end(args);
-}
+void DEBUG(const char* format, ...);
 
-void INFO(const char* format, ...) {
-    va_list args;
-    va_start(args, format);
-    cout << time(NULL) << " INFO:";
-    vprintf(format, args);
-    cout << "\n";
-    va_end(args);
-}
+void INFO(const char* format, ...);
 
-void ERROR(const char* format, ...) {
-    va_list args;
-    va_start(args, format);
-    cout << time(NULL) << " ERROR:";
-    vprintf(format, args);
-    cout << "\n";
-    va_end(args);
-}
-
-int getSSTableNum() {
-    for (int i = 0;; i++) {
-        std::stringstream sstream;
-        sstream << SSTABLE_FILE_NAME << i;
-        std::string table_name; 
-        sstream >> table_name;
-        if (access(table_name.c_str(), F_OK) == -1)
-            return i;
-    }
-}
-bool haveLog(int id) {
-  
-    std::stringstream sstream;
-    sstream << LOG_FILE_NAME << id;
-    std::string table_name; 
-    sstream >> table_name;
-    if (access(table_name.c_str(), F_OK) != -1)
-        return true;
-    else
-        return false;
-}
-
-bool testSSTable(int _id) {
-    std::stringstream sstream;
-    sstream << LOG_FILE_NAME << _id;
-    std::string table_name; 
-    sstream >> table_name;
-    // get file size
-    struct stat statbuf;
-    stat(table_name.c_str(), &statbuf);
-    size_t _fsize = statbuf.st_size;
-
-    // 
-    RandomAccessFile file;
-    if (file.open(table_name) != RetCode::kSucc)
-        return false;
-    char buf[32];
-    int magic_len = strlen(MAGIC_STRING);
-    if (file.read(buf, _fsize - magic_len, magic_len) != RetCode::kSucc)
-        return false;
-    if (PolarString(MAGIC_STRING, magic_len).compare(PolarString(buf, magic_len)) != 0)
-        return false;
-    return true;
+void ERROR(const char* format, ...);
 
 
-}
 
+// class WritableFile {
+// public:
+//     WritableFile(int fd);
+//     WritableFile();
+//     RetCode open(int fd);
+//     RetCode open(const char* file_name);
+//     RetCode append(const char* data, const size_t &size);
+//     RetCode flush();
+//     RetCode close();
+//     size_t size();
+//     ~WritableFile();
+// private:
+//     const static size_t MAX_BUFFER_SIZE = 64 * 1024;
+//     RetCode _flush();
+//     int _fd;
+//     size_t _buf_size = 0;
+//     size_t _data_size = 0;
+//     char _buf[MAX_BUFFER_SIZE + 1];
+// };
+
+// class SquentialFile {
+// public:
+//     SquentialFile(int fd);
+//     SquentialFile();
+//     ~SquentialFile();
+//     RetCode open(const string &file);
+//     RetCode open(int fd);
+//     RetCode read(char* dst, const size_t &size, size_t &ret_size);
+//     RetCode close();
+// private:
+//     RetCode _read();
+//     const static size_t MAX_BUFFER_SIZE = 64 * 1024;
+//     int _fd;
+//     size_t _data_pos = 0;
+//     size_t _buf_pos = 0;
+//     size_t _buf_size = 0;
+//     char _buf[MAX_BUFFER_SIZE];
+// };
+
+// // class MmapFile {
+// // public:
+// //     MmapFile():_fd(-1):_size(0){}
+// //     ~MmapFile() {close();}
+// //     RetCode open(const string &file) {
+// //         int fd = ::open(file.c_str(), O_RDONLY);
+// //         return open(fd);
+// //     }
+// //     RetCode open(int fd) {
+// //         if (fd < 0) {
+// //             ERROR("MmapFile::open() open a wrong file.");
+// //             return RetCode::kIOError;
+// //         }
+// //         else {
+// //             _fd = fd;
+// //             size_t map_size = 100;
+// //             _ptr = mmap(NULL, map_size, PROT_READ, MAP_SHARED, _fd, 0);
+// //             if (_ptr == nullptr) {
+// //                 ERROR("MmapFile::open() mmap error.");
+// //                 return RetCode::kIOError;
+// //             }
+// //             return RetCode::kSucc;
+// //         }
+// //     }
+// //     RetCode read(char* buf, const size_t &begin, const size_t &len) {
+// //         if (_ptr == nullptr)
+// //             return RetCode::kIOError;
+// //         memcpy(buf, _ptr + begin, len);
+// //         return RetCode::kSucc;
+// //     }
+// //     size_t size() {
+// //         return _size;
+// //     }
+// //     RetCode close() {
+// //         if (_fd > 0) {
+// //             ::close(_fd);
+// //             _fd = -1;
+// //         }
+// //         return RetCode::kSucc;
+// //     }
+// // private:
+// //     char* _ptr;
+// //     size_t _size;
+// //     int _fd;
+// // };
+
+// class RandomAccessFile {
+// public:
+//     RandomAccessFile();
+//     ~RandomAccessFile();
+//     RetCode open(const string &file);
+//     RetCode open(const int &fd);
+//     RetCode read(void* buf, const size_t &begin, const size_t &len);
+// private:
+//     int _fd;
+// };
 class WritableFile {
 public:
     WritableFile(int fd):_fd(fd){}
@@ -117,7 +146,7 @@ public:
         }
     }
     RetCode open(const char* file_name) {
-        int fd = ::open(file_name, O_CREAT|O_APPEND|O_WRONLY);
+        int fd = ::open(file_name, O_WRONLY |O_CREAT | O_APPEND , 0777);
         return open(fd);
     }
     RetCode append(const char* data, const size_t &size) {
@@ -338,6 +367,11 @@ public:
 private:
     int _fd;
 };
+
+
+int getSSTableNum();
+bool haveLog(int id);
+bool testSSTable(int _id);
 
 }// namespace polar_race
 

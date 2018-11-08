@@ -10,8 +10,7 @@ class EngineRace : public Engine  {
  public:
   static RetCode Open(const std::string& name, Engine** eptr);
 
-  explicit EngineRace(const std::string& dir) {
-  }
+  explicit EngineRace(const std::string& dir);
 
   ~EngineRace();
 

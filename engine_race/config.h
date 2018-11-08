@@ -31,6 +31,7 @@
 #include <string>
 
 namespace polar_race {
-std::string ENGINE_DIR;
+// std::string ENGINE_DIR;
+extern std::string __engine_dir;
 } // namespace polar_race
 #endif // _ENGINE_RACE_CONFIG_H_
