@@ -36,30 +36,53 @@ EngineRace::EngineRace(const std::string& dir) {
   __engine_dir.assign(dir);
   INFO("Initializing...");
   int sstable_num = getSSTableNum();
-  int i = sstable_num - 1;
-  DEBUG("%d",i);
-  while (!testSSTable(i)) {
-    // invalid table
-    INFO("Recovering table%d", i);
-    MemTable* table = new MemTable();
-    table->setID(i);
-    table->unset_auto_write();
-    if (DataLog::recover(table) != RetCode::kSucc) {
-      ERROR("Recover Error with table%d", i);
-    }
-    if (writeImmutTable(table) != RetCode::kSucc) {
-      ERROR("Recover ImmutTable error");
-    }
-    i--;
+  // int i = sstable_num - 1;
+  DEBUG("Find tables:%d",sstable_num);
+  for (int i = 0; i < sstable_num; i++) {
+      TableReader* table = new TableReader();
+      if (table->open(i) != kSucc)
+        ERROR("Can't open table%d when initializing.", i);
+      else {
+        if (table->testMagic() == kSucc)
+          // can be used
+          SSTableMap[i] = table;  
+        else {
+          // recover
+          delete table;
+          MemTable* memtable = new MemTable();
+          memtable->setID(i);
+          memtable->unset_auto_write();
+          if (DataLog::recover(memtable) != RetCode::kSucc) 
+            ERROR("Recover Error with table%d", i);
+          if (writeImmutTable(memtable) != RetCode::kSucc) 
+            ERROR("Recover ImmutTable error");
+          table = new TableReader();
+          table->open(i);
+          SSTableMap[i] = table;
+        }
+      } 
   }
+  // while (!testSSTable(i)) {
+  //   // invalid table
+  //   INFO("Recovering table%d", i);
+  //   MemTable* table = new MemTable();
+  //   table->setID(i);
+  //   table->unset_auto_write();
+  //   if (DataLog::recover(table) != RetCode::kSucc) {
+  //     ERROR("Recover Error with table%d", i);
+  //   }
+  //   if (writeImmutTable(table) != RetCode::kSucc) {
+  //     ERROR("Recover ImmutTable error");
+  //   }
+  //   i--;
+  // }
+
   TABLE_COUNT = sstable_num;
   MemTable* table = new MemTable();
-
   if (haveLog(sstable_num)) {
     if (DataLog::recover(table) != RetCode::kSucc) 
       ERROR("Recover last Memtable");
   }
-
 }
 
 // 2. Close engine

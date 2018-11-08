@@ -13,7 +13,7 @@
 
 namespace polar_race {
 
-std::map<int, TableReader*> SSTableMap;
+std::vector<TableReader*> SSTableMap(512);
 
 
 RetCode writeImmutTable(MemTable* table) {
@@ -67,6 +67,9 @@ RetCode TableWriter::open() {
     sstream <<  __engine_dir << "/" << SSTABLE_FILE_NAME << id;
     std::string table_name; 
     sstream >> table_name;
+
+    // remove the table before create
+    remove(table_name.c_str());
 
     // create sstable
     WritableFile* sstable = new WritableFile();
@@ -150,6 +153,7 @@ RetCode TableReader::open(int table_id) {
     sstream >> table_name;
 
     // open file
+    _file = new RandomAccessFile();
     ASSERT(_file->open(table_name));
     _id = table_id;
     
@@ -262,6 +266,15 @@ size_t TableReader::binarySearch(const string& key, const IndexEntry* _index_arr
             return _index_array[mid].p;
     }
     return -1;
+}
+
+RetCode TableReader::testMagic() {
+    char buf[20];
+    int magic_len = strlen(MAGIC_STRING);
+    ASSERT(_file->read(buf, _fsize - magic_len, magic_len));
+    if (PolarString(buf, magic_len).compare(PolarString(MAGIC_STRING, magic_len)) != 0)
+        return kNotFound;
+    return kSucc;
 }
 
 } // namespace polar_race

@@ -105,6 +105,8 @@ RetCode DataLog::recover(MemTable* table) {
             ERROR("DataLog::recover(%d) can't write.", table->id());
     }
 
+    // deleteLog(table->id());
+
     return RetCode::kSucc;
 }
 

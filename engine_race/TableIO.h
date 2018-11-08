@@ -48,17 +48,22 @@ private:
 class TableReader {
 public:
     // check cache before this
-    TableReader():_file(nullptr){_using = 0;}
-    
+    TableReader():_file(nullptr){}
+    ~TableReader() {
+        if (_index_cache)
+            delete _index_cache;
+        if (_file)
+            delete _file;
+    }
     RetCode open(int id);
 
     RetCode checkFilter(const string& key, bool& find);
     
     RetCode read(const string& key, string* value);
 
+    RetCode testMagic();
 private:
-    
-    std::atomic_int _using;
+
     int _id;
     std::map<string, size_t>* _index_cache = nullptr;
     size_t _fsize;
@@ -66,7 +71,7 @@ private:
     size_t _filter_size;
     size_t _index_head;
     size_t _index_size;
-    RandomAccessFile* _file;
+    RandomAccessFile* _file = nullptr;
     
     std::mutex mtx;
 
@@ -76,7 +81,7 @@ private:
     size_t binarySearch(const string& key, const IndexEntry* _index_array, int len);
 };
 
-extern std::map<int, TableReader*> SSTableMap;
+extern std::vector<TableReader*> SSTableMap;
 
 
 } // namespace polar_race
