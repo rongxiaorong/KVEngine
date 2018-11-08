@@ -8,10 +8,15 @@
 #include "MemTable.h"
 #include "config.h"
 #include <map>
-
+#include <hash_map>
 namespace polar_race {
 
 RetCode writeImmutTable(MemTable* table);
+
+struct IndexEntry{
+    char k[8];
+    size_t p;
+};
 
 class TableWriter {
 public:
@@ -21,9 +26,10 @@ public:
     RetCode write();
     RetCode flush();
 private:
+
     MemTable* _table;
     WritableFile* _file;
-    size_t* _index;
+    IndexEntry* _index;
     RetCode _write_data();
     RetCode _write_index();
     RetCode _write_footer();
@@ -46,16 +52,28 @@ public:
     
     RetCode open(int id);
 
-    RetCode checkFilter(const string& key);
+    RetCode checkFilter(const string& key, bool& find);
     
-    RetCode read(const string& key, string& value);
+    RetCode read(const string& key, string* value);
 
 private:
-    // RetCode 
+    
     std::atomic_int _using;
     int _id;
+    std::map<string, size_t>* _index_cache = nullptr;
+    size_t _fsize;
+    size_t _filter_head;
+    size_t _filter_size;
+    size_t _index_head;
+    size_t _index_size;
     RandomAccessFile* _file;
     
+    std::mutex mtx;
+
+    RetCode readIndex(const string& key, string* value);
+    RetCode cacheIndex();
+    RetCode readValue(size_t offset, string* value);
+    size_t binarySearch(const string& key, const IndexEntry* _index_array, int len);
 };
 
 extern std::map<int, TableReader*> SSTableMap;

@@ -11,12 +11,18 @@ class BloomFilter {
 public:
     // size (bits) for an entry
 	BloomFilter(){}
+	~BloomFilter(){this->clear();}
     BloomFilter(int entry_size  /* m */, int entry_inserts  /* n */);
-	void init(int entry_size  /* m */, int entry_inserts  /* n */);
+	void init(int entry_size  /* m */, int entry_inserts  /* n */, void* buf);
     void set(const std::string src);
     
     bool get(const std::string src);
 
+	void clear() {
+		if (dataPointer != nullptr)
+			delete dataPointer;
+		dataPointer = nullptr;
+	}
     unsigned char* data();
 
     // size of the array (bytes)
@@ -26,7 +32,7 @@ private:
 	static const constexpr double ln2 = 0.693147;
 	static const int maxFunctions = 100;  // changeable
 	static const unsigned int blockLen = 8;
-	unsigned char* dataPointer;
+	unsigned char* dataPointer = nullptr;
 	unsigned int bitsetSize;  // actually, it is a bool array
 	int sumHashFunction;
 	// dynamic_bitset ops

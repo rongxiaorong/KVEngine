@@ -23,14 +23,14 @@ MemTable* MemTable::getMemtable() {
 
 MemTable* MemTable::getImmut() {
     return immut;
-}
+} 
 
 void MemTable::setImmutable() {
     std::lock_guard<std::mutex> guard(table_mtx);
 
     // make sure each memtable call this function only once
     if (this->_immut) return;
-    this->_immut = true;
+    this->_immut = true; 
 
     immut_mtx.lock();
     immut = _mutable;
@@ -58,7 +58,7 @@ RetCode MemTable::_write(const PolarString& key, const PolarString& value) {
         size += value.size();
         size += key.size();
         _filter->set(_key);
-        if (size > MEMTABLE_MAX_SIZE) 
+        if (size > MEMTABLE_MAX_SIZE && _auto_write) 
             setImmutable();
 
     }
@@ -101,6 +101,14 @@ RetCode MemTable::write(const PolarString& key, const PolarString& value) {
     return ret;    
 }   
 
+RetCode MemTable::read(const PolarString& key, string* value) {
+    if (contains(key)) {
+        value->assign(*index[key.ToString()]);
+        return RetCode::kSucc;
+    }
+    else 
+        return RetCode::kNotFound;
+}
 
 
 } // namespace polar_race

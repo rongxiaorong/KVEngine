@@ -16,7 +16,7 @@
 namespace polar_race {
 using std::string;
 
-int TABLE_COUNT = 0;
+extern int TABLE_COUNT;
 
 class MemTable {
 public:
@@ -28,6 +28,7 @@ public:
         _filter = new BloomFilter(FILTER_SIZE, MEMTABLE_MAX_SIZE/4096);
         _id = TABLE_COUNT;
         TABLE_COUNT++;
+        _mutable = this;
     }
 
     // set a mutex for write a new entry 
@@ -40,6 +41,10 @@ public:
     
     int id(){return _id;}
 
+    void setID(int new_id){_id = new_id;}
+
+    void unset_auto_write(){_auto_write = false;}
+    
 private:
     static std::mutex table_mtx;
     static std::mutex immut_mtx;
@@ -48,6 +53,8 @@ private:
     static MemTable* immut;
     
     int _id;
+
+    bool _auto_write = true;
 
     std::map<string, string*> index;
     BloomFilter* _filter;
@@ -64,8 +71,8 @@ private:
     RetCode _update(const PolarString& key, const PolarString& value);
     
     bool _immut = false;
-    void setImmutable();
     
+    void setImmutable();
     friend class TableWriter;
     friend RetCode writeImmutTable(MemTable* table);
 };

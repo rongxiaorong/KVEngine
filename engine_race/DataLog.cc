@@ -8,7 +8,7 @@ namespace polar_race {
 
 std::map<int, WritableFile*> DataLog::log_files;
 
-RetCode DataLog::log(PolarString& key, PolarString& value, int _id) {
+RetCode DataLog::log(const PolarString& key, const PolarString& value, int _id) {
     static std::mutex _log_mtx;
     std::lock_guard<std::mutex> guard(_log_mtx);
     if (log_files.find(_id) == log_files.end()) {

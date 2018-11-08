@@ -12,6 +12,7 @@
 #include <time.h>
 #include <stdarg.h>
 #include <sstream>
+#include <sys/stat.h>
 #include "config.h"
 
 namespace polar_race {
@@ -63,6 +64,42 @@ int getSSTableNum() {
         if (access(table_name.c_str(), F_OK) == -1)
             return i;
     }
+}
+bool haveLog(int id) {
+  
+    std::stringstream sstream;
+    sstream << LOG_FILE_NAME << id;
+    std::string table_name; 
+    sstream >> table_name;
+    if (access(table_name.c_str(), F_OK) != -1)
+        return true;
+    else
+        return false;
+}
+
+bool testSSTable(int _id) {
+    std::stringstream sstream;
+    sstream << LOG_FILE_NAME << _id;
+    std::string table_name; 
+    sstream >> table_name;
+    // get file size
+    struct stat statbuf;
+    stat(table_name.c_str(), &statbuf);
+    size_t _fsize = statbuf.st_size;
+
+    // 
+    RandomAccessFile file;
+    if (file.open(table_name) != RetCode::kSucc)
+        return false;
+    char buf[32];
+    int magic_len = strlen(MAGIC_STRING);
+    if (file.read(buf, _fsize - magic_len, magic_len) != RetCode::kSucc)
+        return false;
+    if (PolarString(MAGIC_STRING, magic_len).compare(PolarString(buf, magic_len)) != 0)
+        return false;
+    return true;
+
+
 }
 
 class WritableFile {

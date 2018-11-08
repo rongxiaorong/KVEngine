@@ -13,7 +13,7 @@ namespace polar_race {
 
 class DataLog {
 public:
-    static RetCode log(PolarString& key, PolarString& value, int _id);
+    static RetCode log(const PolarString& key,const PolarString& value, int _id);
     static RetCode createLog(int _id);
     static RetCode deleteLog(int _id);
     static RetCode recover(MemTable* table);

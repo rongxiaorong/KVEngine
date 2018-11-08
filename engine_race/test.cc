@@ -10,32 +10,19 @@
 
 using namespace std;
 // using namespace polar_race;
+// #pragma pack(1)
+struct IndexCacheEntry {
+    char key[8];
+    unsigned short fid;
+    size_t offset;
+};
+struct IndexEntry{
+    char k[8];
+    size_t p;
+};
+extern int a;
+int a = 3;
 
-atomic_long count;
-bool ismut = false;
-mutex mtx1;
-mutex table_mtx;
-void run1() {
-  
-}
-
-bool write() {
-  lock_guard<mutex> guard(mtx);
-  count++;
-  if (count > 10)
-    return table_immut();
-  return false;
-}
-bool table_immut() {
-  lock_guard<mutex> guard(table_mtx);
-  if (ismut)
-    return true;
-  ismut = true;
-  
-}
-void run2() {
-
-}
 int main() {
-    
+    cout << sizeof(IndexEntry);
 }

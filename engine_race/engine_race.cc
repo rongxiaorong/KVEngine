@@ -1,6 +1,9 @@
 // Copyright [2018] Alibaba Cloud All rights reserved
 #include "engine_race.h"
-
+#include "util.h"
+#include "DataLog.h"
+#include "MemTable.h"
+#include "TableIO.h"
 namespace polar_race {
 
 std::string ENGINE_DIR;
@@ -24,24 +27,71 @@ RetCode EngineRace::Open(const std::string& name, Engine** eptr) {
   *eptr = engine_race;
   return kSucc;
 }
+int TABLE_COUNT = 0;
 
 EngineRace::EngineRace(const std::string& dir) {
   // initilize the engine
-  
+  INFO("Initializing...");
+  int sstable_num = getSSTableNum();
+  int i = sstable_num - 1;
+  while (!testSSTable(i)) {
+    // invalid table
+    INFO("Recovering table%d", i);
+    MemTable* table = new MemTable();
+    table->setID(i);
+    table->unset_auto_write();
+    if (DataLog::recover(table) != RetCode::kSucc) {
+      ERROR("Recover Error with table%d", i);
+    }
+    if (writeImmutTable(table) != RetCode::kSucc) {
+      ERROR("Recover ImmutTable error");
+    }
+    i--;
+  }
+  TABLE_COUNT = sstable_num;
+  MemTable* table = new MemTable();
+
+  if (haveLog(sstable_num)) {
+    if (DataLog::recover(table) != RetCode::kSucc) 
+      ERROR("Recover last Memtable");
+  }
+
 }
 
 // 2. Close engine
 EngineRace::~EngineRace() {
+  MemTable* table = MemTable::getMemtable();
+  if (writeImmutTable(table) != RetCode::kSucc) {
+      ERROR("Close Engine error");
+  }
 }
 
 // 3. Write a key-value pair into engine
 RetCode EngineRace::Write(const PolarString& key, const PolarString& value) {
+  MemTable* table = MemTable::getMemtable();
+  ASSERT(DataLog::log(key, value, table->id()));
+  ASSERT(table->write(key, value));
   return kSucc;
 }
 
 // 4. Read value of a key
 RetCode EngineRace::Read(const PolarString& key, std::string* value) {
-  return kSucc;
+  MemTable* table = MemTable::getMemtable();
+  if(table != nullptr)
+    if (table->read(key, value) == RetCode::kSucc)
+      return kSucc;
+  table = MemTable::getImmut();
+  if(table != nullptr)
+    if (table->read(key, value) == RetCode::kSucc)
+      return kSucc;
+  string _key = key.ToString();
+  for (int i = TABLE_COUNT; i>=0; i--) { 
+    TableReader* reader = SSTableMap[i];
+    if (reader != nullptr) 
+      if (reader->read(_key, value) == RetCode::kSucc)
+        return kSucc;
+  }
+  return kNotFound;
 }
 
 /*
