@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.2)
 set(CMAKE_CXX_COMPILER "/usr/bin/g++")
-set(CMAKE_CXX_FLAGS   "-std=c++11 -pthread")
+set(CMAKE_CXX_FLAGS   "-std=c++11 -pthread -Wall -g")
 PROJECT(kvdb)
 INCLUDE_DIRECTORIES(../include)
 INCLUDE_DIRECTORIES(.)

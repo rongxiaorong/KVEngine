@@ -7,11 +7,10 @@
 #include "../include/engine.h"
 #include "MemTable.h"
 #include "config.h"
-#include <map>
-#include <hash_map>
+#include <map> 
 namespace polar_race {
 
-RetCode writeImmutTable(MemTable* table);
+void writeImmutTable(MemTable* table);
 
 struct IndexEntry{
     char k[8];
@@ -74,7 +73,7 @@ private:
     RandomAccessFile* _file = nullptr;
     
     std::mutex mtx;
-
+    std::mutex read_mtx;
     RetCode readIndex(const string& key, string* value);
     RetCode cacheIndex();
     RetCode readValue(size_t offset, string* value);

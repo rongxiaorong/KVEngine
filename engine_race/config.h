@@ -14,7 +14,7 @@
 
 // memtable max size
 // 500MB
-#define MEMTABLE_MAX_SIZE 512000000
+#define MEMTABLE_MAX_SIZE 512000000//512000000
 
 
 #define LOG_FILE_NAME "DBLOG"
@@ -25,7 +25,7 @@
 
 #define MAX_FILTER_CACHE 5
 
-#define MAX_INDEX_CACHE 5
+#define MAX_INDEX_CACHE 150
 
 #define FILTER_SIZE 4*1024*1024*8
 #include <string>

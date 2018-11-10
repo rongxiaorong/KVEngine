@@ -8,24 +8,27 @@
 #include "MemTable.h"
 #include "config.h"
 #include "TableIO.h"
-#include "TableCache.h"
 #include "DataLog.h"
 
 namespace polar_race {
 
 std::vector<TableReader*> SSTableMap(512);
+ 
 
-
-RetCode writeImmutTable(MemTable* table) {
+void writeImmutTable(MemTable* table) { 
     // wait for all writers of the table
-    std::unique_lock<std::mutex> mtx;
-    while (table->_on_writing)
-        table->_on_writing_cv.wait(mtx);
-
+    std::unique_lock<std::mutex> ulock(table->_on_writing_mtx);
+    // mtx.lock();
+    while (table->_on_writing != 0) {
+        INFO("Fuck waiting %d:%d", table->id(), table->_on_writing);
+        table->_on_writing_cv.wait(ulock);
+    }
+    INFO("Writing table %d size %ld", table->id(), table->size.load());
     // persist the table
-    TableWriter tableWriter(table);
-    ASSERT(tableWriter.open());
-    ASSERT(tableWriter.write()); 
+    TableWriter* tableWriter = new TableWriter(table);
+    tableWriter->open();
+    tableWriter->write();
+    delete tableWriter; 
     INFO("Finish writing table %d", table->_id);
    
     // // cache the filter
@@ -33,17 +36,20 @@ RetCode writeImmutTable(MemTable* table) {
  
     // open TableReader
     TableReader* tableReader = new TableReader();
-    ASSERT(tableReader->open(table->_id));
+    tableReader->open(table->_id);
     SSTableMap[table->_id] = tableReader;
     
     // delete Logfile
     DataLog::deleteLog(table->_id);
 
     // free MemTable
-    if (table->immut == table) {
-        table->immut = nullptr;
-    }
+    // if (table->immut == table) {
+    //     table->immut = nullptr;
+    // }
+    immutTableList.remove(table->_id);
     delete table;
+
+    return;
 }
 
 TableWriter::TableWriter(MemTable* table) {
@@ -129,13 +135,13 @@ RetCode TableWriter::_write_index() {
 }
 
 RetCode TableWriter::_write_bloomfilter() {
-    ASSERT(_file->append((char* )_table->_filter->data(), _table->_filter->size()));
+    // ASSERT(_file->append((char* )_table->_filter->data(), _table->_filter->size()));
     return RetCode::kSucc;
 }
 
 RetCode TableWriter::_write_footer() {
     size_t index_size = _table->index.size() * sizeof(IndexEntry);
-    size_t filter_size = _table->_filter->size();
+    size_t filter_size = 0;
     ASSERT(_file->append((char*)&index_size, sizeof(size_t)));
     ASSERT(_file->append((char*)&filter_size, sizeof(size_t)));
     string magic(MAGIC_STRING);
@@ -174,17 +180,17 @@ RetCode TableReader::open(int table_id) {
     return RetCode::kSucc;
 }
 
-RetCode TableReader::checkFilter(const string& key, bool& find) {
-    BloomFilter filter(FILTER_SIZE, MEMTABLE_MAX_SIZE/4096);
+// RetCode TableReader::checkFilter(const string& key, bool& find) {
+//     BloomFilter filter(FILTER_SIZE, MEMTABLE_MAX_SIZE/4096);
 
-    ASSERT(_file->read(filter.data(), _filter_head, _filter_size));
-    if (filter.get(key))
-        find = true;
-    else
-        find = false;
+//     ASSERT(_file->read(filter.data(), _filter_head, _filter_size));
+//     if (filter.get(key))
+//         find = true;
+//     else
+//         find = false;
 
-    return RetCode::kSucc;
-}
+//     return RetCode::kSucc;
+// }
 
 RetCode TableReader::cacheIndex() {
     std::lock_guard<std::mutex> guard(mtx);
@@ -196,7 +202,8 @@ RetCode TableReader::cacheIndex() {
     IndexEntry* tmp = (IndexEntry*)buf.data();
     int count = _index_size / (sizeof(IndexEntry));
     for (int i = 0; i < count; i++)
-        (*_index_cache)[string(tmp[i].k)] = tmp[i].p;
+        _index_cache->insert(std::pair<string, size_t>(string(tmp[i].k, 8), tmp[i].p));
+        // (*_index_cache)[string(tmp[i].k)] = tmp[i].p;
     return RetCode::kSucc;
 }
 
@@ -211,6 +218,7 @@ RetCode TableReader::readValue(size_t offset, string* value) {
 }
 
 RetCode TableReader::read(const std::string &key, std::string *value) {
+    std::lock_guard<std::mutex> guard(read_mtx);
     if (_file == nullptr) {
         ERROR("TableRader::read() read unopen file.");
         return RetCode::kIOError;
@@ -235,7 +243,10 @@ RetCode TableReader::readIndex(const string& key, string* value) {
         _cache_count ++;
         _cache_count_mtx.unlock();
         ASSERT(cacheIndex());
-        return readValue(_index_cache->at(key), value);  
+        if (_index_cache->find(key) != _index_cache->end())
+            return readValue(_index_cache->at(key), value);  
+        else
+            return kNotFound;
     } else {
         // can't cache, read the index and release then
         _cache_count_mtx.unlock();
@@ -245,7 +256,7 @@ RetCode TableReader::readIndex(const string& key, string* value) {
         int count = _index_size / (sizeof(IndexEntry));
         size_t offset = binarySearch(key, tmp, count);
         // buf.clear()
-        if (offset < 0)
+        if (offset == 1)
             return RetCode::kNotFound;
         else
             return readValue(offset, value);
@@ -265,7 +276,7 @@ size_t TableReader::binarySearch(const string& key, const IndexEntry* _index_arr
         else 
             return _index_array[mid].p;
     }
-    return -1;
+    return 1;
 }
 
 RetCode TableReader::testMagic() {

@@ -147,7 +147,16 @@ public:
     }
     RetCode open(const char* file_name) {
         int fd = ::open(file_name, O_WRONLY |O_CREAT | O_APPEND , 0777);
+        // lseek(fd, )
         return open(fd);
+    }
+    RetCode seek(size_t pos) {
+        size_t res;
+        if ((res = lseek(_fd, pos, SEEK_SET)) != pos) {
+            ERROR("lseek error : res %ld pos %ld", res, pos);
+            return RetCode::kIOError;
+        }
+        return RetCode::kSucc;
     }
     RetCode append(const char* data, const size_t &size) {
         if (_fd < 0) {
@@ -188,6 +197,7 @@ public:
             ::close(_fd);
             _fd = -1;
         }
+        return kSucc;
     };
     size_t size() { return _data_size + _buf_size;}
     ~WritableFile() {
@@ -196,7 +206,7 @@ public:
 private:
     const static size_t MAX_BUFFER_SIZE = 64 * 1024;
     RetCode _flush() {
-        ssize_t write_size = ::write(_fd, _buf, _buf_size);
+        size_t write_size = ::write(_fd, _buf, _buf_size);
         _data_size += write_size;
         if (write_size != _buf_size) {
             ERROR("WritableFile::_flush() try to write %d size, but write %d size.", (int)_buf_size, (int)write_size);
@@ -268,6 +278,7 @@ public:
             _fd = 1;
             return RetCode::kSucc;
         }
+        return kSucc;
     }
 private:
     RetCode _read() {
@@ -352,7 +363,7 @@ public:
     RetCode read(void* buf, const size_t &begin, const size_t &len) {
         if (_fd < 0)
             return RetCode::kNotFound;
-        ssize_t ret = ::pread(_fd, buf, len, begin);
+        size_t ret = ::pread(_fd, buf, len, begin);
         if (len != ret)
             INFO("RandomAccessFile::read() try to read %d bytes, but get %d bytes", (int)len, (int)ret);
         if (ret <= 0)

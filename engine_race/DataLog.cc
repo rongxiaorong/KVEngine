@@ -1,6 +1,7 @@
 // DataLog.cc
 
 #include "DataLog.h"
+#include <sys/stat.h>
 #include <sstream>
 #include <stdio.h>
 
@@ -43,7 +44,17 @@ RetCode DataLog::createLog(int _id) {
     WritableFile* new_file = new WritableFile();
     ASSERT(new_file->open(log_name.c_str()));
     log_files[_id] = new_file;
+    INFO("Creating DataLog: %s", log_name.c_str());
 
+    // resize the file
+    struct stat statbuf;
+    stat(log_name.c_str(), &statbuf);
+    size_t _fsize = statbuf.st_size;
+    size_t valid_size = _fsize - (_fsize % (4096 + 8 + 2 * sizeof(size_t)));
+    if (_fsize != valid_size) {
+        ERROR("_fsize != valid_size, %ld %ld", _fsize, valid_size);
+        new_file->seek(valid_size);
+    }
     return RetCode::kSucc;
 }
 
@@ -58,7 +69,7 @@ RetCode DataLog::deleteLog(int _id) {
     sstream >> log_name;
 
     if (log_files.find(_id) != log_files.end()) {
-        DEBUG("DataLog::deleteLog(_id=%d) file is still open?", _id);
+        // DEBUG("DataLog::deleteLog(_id=%d) file is still open?", _id);
         log_files[_id]->close();
     }
     if (remove(log_name.c_str())) {
@@ -84,12 +95,12 @@ RetCode DataLog::recover(MemTable* table) {
 
     SquentialFile file;
     ASSERT(file.open(log_name));
-    
+    INFO("Recovering %s", log_name.c_str());
     size_t size;
     char kbuf[1024];
     char vbuf[8096];
     while(true) {
-        size_t read_size;
+        size_t read_size = 0;
         // read key
         file.read((char*)&size, sizeof(size_t), read_size);
         if (read_size == 0)

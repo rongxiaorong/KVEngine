@@ -18,12 +18,15 @@ using std::cout;
 using std::string;
 
 void DEBUG(const char* format, ...) {
-    va_list args;
-    va_start(args, format);
-    cout << time(NULL) << " DEBUG:";
-    vprintf(format, args);
-    cout << "\n";
-    va_end(args);
+    // static FILE* fd = fopen("/home/francis/Git/tmp_debug_file" , "a+");
+    
+    // va_list args;
+    // va_start(args, format);
+    // fprintf(fd,"%ld DEBUG:",time(NULL));
+    // vfprintf(fd, format, args);
+    // fprintf(fd,"\n");
+    // fflush(fd);
+    // va_end(args);
 }
 
 void INFO(const char* format, ...) {
@@ -299,10 +302,14 @@ bool haveLog(int id) {
     sstream <<  __engine_dir << "/" << LOG_FILE_NAME << id;
     std::string table_name; 
     sstream >> table_name;
-    if (access(table_name.c_str(), F_OK) != -1)
+    if (access(table_name.c_str(), F_OK) != -1) {
+        INFO("Find Log: %s", table_name.c_str());
         return true;
-    else
+    }
+    else {
+        INFO("Can't find log: %s", table_name.c_str());
         return false;
+    }
 }
 
 bool testSSTable(int _id) {
