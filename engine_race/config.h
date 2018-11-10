@@ -14,7 +14,7 @@
 
 // memtable max size
 // 500MB
-#define MEMTABLE_MAX_SIZE 512000000//512000000
+#define MEMTABLE_MAX_SIZE 51200*2//512000000
 
 
 #define LOG_FILE_NAME "DBLOG"
@@ -33,5 +33,9 @@
 namespace polar_race {
 // std::string ENGINE_DIR;
 extern std::string __engine_dir;
+struct MetaData {
+    int SStable_num;
+    // int 
+};
 } // namespace polar_race
 #endif // _ENGINE_RACE_CONFIG_H_

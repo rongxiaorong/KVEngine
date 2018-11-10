@@ -222,6 +222,43 @@ private:
     char _buf[MAX_BUFFER_SIZE + 1];
 };
 
+class RandomAccessFile {
+public:
+    RandomAccessFile():_fd(-1){}
+    ~RandomAccessFile() {
+        this->close();
+    }
+    RetCode open(const string &file) {
+        int fd = ::open(file.c_str(), O_RDONLY);
+        return open(fd);
+    }
+    RetCode open(const int &fd) {
+        if (fd < 0) {
+            ERROR("RandomAccessFile::open() fail");
+            return RetCode::kIOError;
+        }
+        _fd = fd;
+        return RetCode::kSucc;
+    }
+    RetCode read(void* buf, const size_t &begin, const size_t &len) {
+        if (_fd < 0)
+            return RetCode::kNotFound;
+        size_t ret = ::pread(_fd, buf, len, begin);
+        if (len != ret)
+            INFO("RandomAccessFile::read() try to read %d bytes, but get %d bytes", (int)len, (int)ret);
+        if (ret <= 0)
+            return RetCode::kIOError;
+        return RetCode::kSucc;
+    }
+    RetCode close() {
+        if (_fd > 0)
+            ::close(_fd);
+        return RetCode::kSucc;
+    }
+private:
+    int _fd;
+};
+
 class SquentialFile {
 public:
     SquentialFile(int fd):_fd(fd){}
@@ -231,7 +268,7 @@ public:
     }
     RetCode open(const string &file) {
         int fd = ::open(file.c_str(), O_RDONLY);
-        return open(fd);
+        return open(fd);       
     }
     RetCode open(int fd) {
         if (fd < 0) {
@@ -240,6 +277,9 @@ public:
         }
         else {
             _fd = fd;
+            _raf.open(fd);
+            _data_size = lseek(_fd, 0, SEEK_END);
+            _pos = lseek(_fd, 0, SEEK_SET);
             return RetCode::kSucc;
         }
     }
@@ -248,53 +288,102 @@ public:
             ERROR("SquentialFile::read() open a wrong file.");
             return RetCode::kIOError;
         }
-        if (size <= _buf_size - _buf_pos) {
-            // have cache
-            memcpy(dst, _buf + _buf_pos, size);
+        if ( _data_size >= size + _pos) {
+            RetCode ret = _raf.read(dst, _pos, size);
+            _pos += size;
             ret_size = size;
-            _buf_pos += size;
-            return RetCode::kSucc;
+            return ret;
         }
-
-        // preload the buffer
-        _read();
-
-        size_t temp = size;
-        while (temp > 0 && _buf_size > 0) {
-            // copy as much as possible
-            size_t cp_size = std::min<size_t>(_buf_size - _buf_pos, temp);
-            memcpy(dst, _buf + _buf_pos, cp_size);
-            _buf_pos += cp_size;
-            temp -= cp_size;
-            // load again
-            _read();
+        else {
+            RetCode ret = _raf.read(dst, _pos, ret_size);
+            _pos = _data_size;
+            ret_size = _data_size - _pos;
+            return ret;
         }
-        ret_size = size - temp;
-        return RetCode::kSucc;
     }
     RetCode close() {
-        if (_fd > 0) {
-            ::close(_fd);
-            _fd = 1;
-            return RetCode::kSucc;
-        }
-        return kSucc;
+        return _raf.close();
     }
 private:
-    RetCode _read() {
-        if (_buf_size == _buf_pos) { 
-            _buf_size = ::read(_fd, _buf, MAX_BUFFER_SIZE);
-            _buf_pos = 0;
-        }
-        return RetCode::kSucc;
-    }
-    const static size_t MAX_BUFFER_SIZE = 64 * 1024;
-    int _fd;
-    size_t _data_pos = 0;
-    size_t _buf_pos = 0;
-    size_t _buf_size = 0;
-    char _buf[MAX_BUFFER_SIZE];
+    int _fd = -1;
+    size_t _data_size = 0;
+    size_t _pos = 0;
+    RandomAccessFile _raf;
 };
+
+// class SquentialFile {
+// public:
+//     SquentialFile(int fd):_fd(fd){}
+//     SquentialFile():_fd(-1){}
+//     ~SquentialFile() {
+//         close();
+//     }
+//     RetCode open(const string &file) {
+//         int fd = ::open(file.c_str(), O_RDONLY);
+//         return open(fd);
+//     }
+//     RetCode open(int fd) {
+//         if (fd < 0) {
+//             ERROR("SquentialFile::open() open a wrong file.");
+//             return RetCode::kIOError;
+//         }
+//         else {
+//             _fd = fd;
+//             return RetCode::kSucc;
+//         }
+//     }
+//     RetCode read(char* dst, const size_t &size, size_t &ret_size) {
+//         if (_fd < 0) {
+//             ERROR("SquentialFile::read() open a wrong file.");
+//             return RetCode::kIOError;
+//         }
+//         if (size <= _buf_size - _buf_pos) {
+//             // have cache
+//             memcpy(dst, _buf + _buf_pos, size);
+//             ret_size = size;
+//             _buf_pos += size;
+//             return RetCode::kSucc;
+//         }
+
+//         // preload the buffer
+//         _read();
+
+//         size_t temp = size;
+//         while (temp > 0 && _buf_size > 0) {
+//             // copy as much as possible
+//             size_t cp_size = std::min<size_t>(_buf_size - _buf_pos, temp);
+//             memcpy(dst, _buf + _buf_pos, cp_size);
+//             _buf_pos += cp_size;
+//             temp -= cp_size;
+//             // load again
+//             _read();
+//         }
+//         ret_size = size - temp;
+//         return RetCode::kSucc;
+//     }
+//     RetCode close() {
+//         if (_fd > 0) {
+//             ::close(_fd);
+//             _fd = 1;
+//             return RetCode::kSucc;
+//         }
+//         return kSucc;
+//     }
+// private:
+//     RetCode _read() {
+//         if (_buf_size == _buf_pos) { 
+//             _buf_size = ::read(_fd, _buf, MAX_BUFFER_SIZE);
+//             _buf_pos = 0;
+//         }
+//         return RetCode::kSucc;
+//     }
+//     const static size_t MAX_BUFFER_SIZE = 64 * 1024;
+//     int _fd;
+//     size_t _data_pos = 0;
+//     size_t _buf_pos = 0;
+//     size_t _buf_size = 0;
+//     char _buf[MAX_BUFFER_SIZE];
+// };
 
 // class MmapFile {
 // public:
@@ -342,42 +431,7 @@ private:
 //     int _fd;
 // };
 
-class RandomAccessFile {
-public:
-    RandomAccessFile():_fd(-1){}
-    ~RandomAccessFile() {
-        this->close();
-    }
-    RetCode open(const string &file) {
-        int fd = ::open(file.c_str(), O_RDONLY);
-        return open(fd);
-    }
-    RetCode open(const int &fd) {
-        if (fd < 0) {
-            ERROR("RandomAccessFile::open() fail");
-            return RetCode::kIOError;
-        }
-        _fd = fd;
-        return RetCode::kSucc;
-    }
-    RetCode read(void* buf, const size_t &begin, const size_t &len) {
-        if (_fd < 0)
-            return RetCode::kNotFound;
-        size_t ret = ::pread(_fd, buf, len, begin);
-        if (len != ret)
-            INFO("RandomAccessFile::read() try to read %d bytes, but get %d bytes", (int)len, (int)ret);
-        if (ret <= 0)
-            return RetCode::kIOError;
-        return RetCode::kSucc;
-    }
-    RetCode close() {
-        if (_fd > 0)
-            ::close(_fd);
-        return RetCode::kSucc;
-    }
-private:
-    int _fd;
-};
+
 
 
 int getSSTableNum();

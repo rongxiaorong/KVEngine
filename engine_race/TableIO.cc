@@ -46,8 +46,8 @@ void writeImmutTable(MemTable* table) {
     // if (table->immut == table) {
     //     table->immut = nullptr;
     // }
-    immutTableList.remove(table->_id);
     delete table;
+    immutTableList.remove(table->_id);
 
     return;
 }
@@ -75,7 +75,11 @@ RetCode TableWriter::open() {
     sstream >> table_name;
 
     // remove the table before create
-    remove(table_name.c_str());
+    if(remove(table_name.c_str()) == 0) 
+        INFO("remove SSTable%d", id);
+    else
+        INFO("can't remove SSTable%d", id);
+    
 
     // create sstable
     WritableFile* sstable = new WritableFile();
@@ -116,7 +120,7 @@ RetCode TableWriter::_write_data() {
         _index[i].p = _file->size();
         memcpy(_index[i].k, iter->first.c_str(), 8);
 
-        size_t key_size = iter->first.size();
+        // size_t key_size = iter->first.size();
         size_t value_size = iter->second->size();
         // ASSERT(_file->append((char*)&key_size, sizeof(key_size)));
         // ASSERT(_file->append(iter->first.c_str(), iter->first.size()));

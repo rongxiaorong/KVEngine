@@ -95,11 +95,18 @@ RetCode DataLog::recover(MemTable* table) {
 
     SquentialFile file;
     ASSERT(file.open(log_name));
-    INFO("Recovering %s", log_name.c_str());
+    
+
+    // resize the file
+    struct stat statbuf;
+    stat(log_name.c_str(), &statbuf);
+    size_t _fsize = statbuf.st_size;
+    long long int count = _fsize / (4096 + 8 + 2 * sizeof(size_t));
+    INFO("Recovering %s size:%ld", log_name.c_str(), _fsize);
     size_t size;
     char kbuf[1024];
     char vbuf[8096];
-    while(true) {
+    for(long long int i = 0; i < count; i++ ) {
         size_t read_size = 0;
         // read key
         file.read((char*)&size, sizeof(size_t), read_size);

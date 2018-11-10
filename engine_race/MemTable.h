@@ -100,11 +100,14 @@ private:
 
 class ImmutTableList {
 public:
-    ImmutTableList(){}
+    std::condition_variable _write_for_all;
+    std::atomic_int count;
+    ImmutTableList(){count.fetch_and(0);}
     MemTable* get(int n);
     void set(int n, MemTable* table);
     void remove(int n);
 private:
+    
     std::mutex _mtx;
     std::vector<MemTable*> _list = std::vector<MemTable*>(500);
 };

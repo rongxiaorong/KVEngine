@@ -1,4 +1,5 @@
 // Copyright [2018] Alibaba Cloud All rights reserved
+#include <dirent.h>
 #include "engine_race.h"
 #include "util.h"
 #include "DataLog.h"
@@ -31,10 +32,23 @@ RetCode EngineRace::Open(const std::string& name, Engine** eptr) {
 
 int TABLE_COUNT = 0;
 std::string __engine_dir;
+bool _test_flag = false;
 EngineRace::EngineRace(const std::string& dir) {
   // initilize the engine
   __engine_dir.assign(dir);
-  INFO("Initializing...");
+  INFO("Initializing...");    
+  DIR* _dir = opendir(dir.c_str());
+  if (_dir == NULL) {
+    if (mkdir(dir.c_str(), 0777) == 0)
+      INFO("Create dir %s.", dir.c_str());
+    else _dir = opendir(".");
+  }
+  if (_dir != NULL) {
+  dirent* entry;
+  while ((entry = readdir(_dir)) != NULL) 
+    cout << "find dir "<< string(entry->d_name) << "\n";  
+  }
+  INFO("_test_flag = %s", _test_flag?"true":"false");
   int sstable_num = getSSTableNum();
   // int i = sstable_num - 1;
   INFO("Find tables:%d",sstable_num);
@@ -71,6 +85,7 @@ EngineRace::EngineRace(const std::string& dir) {
       ERROR("Recover last Memtable");
     INFO("Memtable size:%ld", table->get_size());
   }
+
 }
 
 // 2. Close engine
@@ -88,13 +103,23 @@ EngineRace::~EngineRace() {
     iter->join();
     INFO("thread exited! %d", id);
   }
+  // for(int i = 0; i < SSTableMap.s) {
+    // if (iter)
+      // delete iter;
+  // }
+  _test_flag = true;
   INFO("886");
 }
 
 // 3. Write a key-value pair into engine
+std::mutex engineWriteMtx;
 RetCode EngineRace::Write(const PolarString& key, const PolarString& value) {
-  static std::mutex mtx;
-  std::lock_guard<std::mutex> guard(mtx);
+  // static std::mutex mtx;
+  std::lock_guard<std::mutex> guard(engineWriteMtx);
+  std::mutex mtx_for_write;
+  std::unique_lock<std::mutex> ulock(mtx_for_write);
+  while(immutTableList.count.fetch_add(0) > 1)
+    immutTableList._write_for_all.wait(ulock);
   MemTable* table = MemTable::getMemtable();
   ASSERT(DataLog::log(key, value, table->id()));
   ASSERT(table->write(key, value));
@@ -109,7 +134,7 @@ RetCode EngineRace::Read(const PolarString& key, std::string* value) {
   MemTable* table = MemTable::getMemtable();
   if(table != nullptr)
     if (table->read(key, value) == RetCode::kSucc) {
-      INFO("Find key in memtable %d size:%d", table->id(), value->size());
+      // INFO("Find key in memtable %d size:%d", table->id(), value->size());
       return kSucc;
     }
   // table = MemTable::getImmut();
@@ -121,7 +146,7 @@ RetCode EngineRace::Read(const PolarString& key, std::string* value) {
     MemTable* immut_table = immutTableList.get(i);
     if (immut_table != nullptr) {
       if (immut_table->read(key, value) == RetCode::kSucc) {
-        INFO("Find key in ImmutTable %d", i);
+        // INFO("Find key in ImmutTable %d", i);
         return kSucc;
       } else
         continue;
@@ -129,7 +154,7 @@ RetCode EngineRace::Read(const PolarString& key, std::string* value) {
     TableReader* reader = SSTableMap[i];
     if (reader != nullptr) 
       if (reader->read(_key, value) == RetCode::kSucc) {
-        INFO("Find key in SSTable %d", i);        
+        // INFO("Find key in SSTable %d", i);        
         return kSucc;
       }
   }

@@ -68,7 +68,7 @@ RetCode MemTable::_write(const PolarString& key, const PolarString& value) {
 }
 
 RetCode MemTable::_update(const PolarString& key, const PolarString& value) {
-    INFO("update into table%d  on_writing:%d", _id, _on_writing);
+    // INFO("update into table%d  on_writing:%d", _id, _on_writing);
     string _key = key.ToString();
     if (index.find(_key) == index.end()) {
         ERROR("MemTable::_update() Unexisted key.");
@@ -136,13 +136,18 @@ MemTable* ImmutTableList::get(int n) {
 }
 
 void ImmutTableList::set(int n, MemTable* table) {
+    count.fetch_add(1);
     _list[n] = table;
+    if (count.fetch_add(0) > 1)
+        INFO("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! count > 1, %d",count.fetch_add(0));
 }
 
 void ImmutTableList::remove(int n) {
     std::lock_guard<std::mutex> guard(_mtx);
+    count.fetch_sub(1);
     INFO("remove immutTable %d", n);
     _list[n] = nullptr;
+    _write_for_all.notify_all();
 }
 
 
