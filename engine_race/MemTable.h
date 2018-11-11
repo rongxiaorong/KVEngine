@@ -21,6 +21,7 @@ extern int TABLE_COUNT;
 
 extern std::list<std::thread*> thread_list;
 
+extern MemoryManager memManager;
 
 class MemTable {
 public:
@@ -43,8 +44,7 @@ public:
         std::unique_lock<std::mutex> ulock(_on_reading_mtx);
         while (_on_reading != 0)
             _on_reading_cv.wait(ulock);
-        for (auto iter : index) 
-            delete iter.second;
+        memManager.free(this, true);
     }
 
     // set a mutex for write a new entry 
@@ -62,6 +62,8 @@ public:
     void unset_auto_write(){_auto_write = false;}
     
     long get_size(){return size.fetch_add(0);}
+
+    std::map<string, PolarString>* getIndex();
 private:
     static std::mutex table_mtx;
     static std::mutex immut_mtx;
@@ -73,7 +75,7 @@ private:
 
     bool _auto_write = true;
 
-    std::map<string, string*> index;
+    std::map<string, PolarString> index;
     // BloomFilter* _filter;
 
     std::atomic_long size;
@@ -96,6 +98,7 @@ private:
     void setImmutable();
     friend class TableWriter;
     friend void writeImmutTable(MemTable* table);
+    friend class MemoryManager;
 };
 
 class ImmutTableList {

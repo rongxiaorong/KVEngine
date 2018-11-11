@@ -55,8 +55,10 @@ RetCode MemTable::_write(const PolarString& key, const PolarString& value) {
         return _update(key, value);
     }
     else {
-        string* new_v = new string(value.data(), value.size());
-        index.insert(std::pair<string, string*>(_key, new_v));
+        // string* new_v = new string(value.data(), value.size());
+        char* new_v = (char*)memManager.allocate();
+        memcpy(new_v, value.data(), value.size());
+        index.insert(std::pair<string, PolarString>(_key, PolarString(new_v, value.size())));
         size.fetch_add(key.size());
         size.fetch_add(value.size());
         // _filter->set(_key);  
@@ -79,7 +81,10 @@ RetCode MemTable::_update(const PolarString& key, const PolarString& value) {
         // string* old_v = index.find(_key)->second;
         // size.fetch_sub(old_v->size());
         // delete old_v;
-        index[_key]->assign(value.data(), value.size());
+        memManager.free(index[_key].data());
+        char* new_v = (char*)memManager.allocate();
+        memcpy(new_v, value.data(), value.size());
+        index[_key] = PolarString(new_v, value.size());
         // size.fetch_add(value.size());
     }
     return RetCode::kSucc;
@@ -116,7 +121,8 @@ RetCode MemTable::read(const PolarString& key, string* value) {
 
     RetCode ret;
     if (contains(key)) {
-        value->assign(*index[key.ToString()]);
+        PolarString v = index[key.ToString()];
+        value->assign(v.data(), v.size());
         ret = RetCode::kSucc;
     }
     else 
@@ -147,7 +153,7 @@ void ImmutTableList::remove(int n) {
     count.fetch_sub(1);
     INFO("remove immutTable %d", n);
     _list[n] = nullptr;
-    _write_for_all.notify_all();
+    // _write_for_all.notify_all();
 }
 
 

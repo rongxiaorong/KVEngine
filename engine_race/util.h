@@ -13,8 +13,10 @@
 #include <stdarg.h>
 #include <sstream>
 #include <sys/stat.h>
+#include <mutex>
+#include <queue>
+#include <condition_variable>
 #include "config.h"
-
 namespace polar_race {
 
 #define ASSERT(A)                     \
@@ -35,102 +37,6 @@ void INFO(const char* format, ...);
 void ERROR(const char* format, ...);
 
 
-
-// class WritableFile {
-// public:
-//     WritableFile(int fd);
-//     WritableFile();
-//     RetCode open(int fd);
-//     RetCode open(const char* file_name);
-//     RetCode append(const char* data, const size_t &size);
-//     RetCode flush();
-//     RetCode close();
-//     size_t size();
-//     ~WritableFile();
-// private:
-//     const static size_t MAX_BUFFER_SIZE = 64 * 1024;
-//     RetCode _flush();
-//     int _fd;
-//     size_t _buf_size = 0;
-//     size_t _data_size = 0;
-//     char _buf[MAX_BUFFER_SIZE + 1];
-// };
-
-// class SquentialFile {
-// public:
-//     SquentialFile(int fd);
-//     SquentialFile();
-//     ~SquentialFile();
-//     RetCode open(const string &file);
-//     RetCode open(int fd);
-//     RetCode read(char* dst, const size_t &size, size_t &ret_size);
-//     RetCode close();
-// private:
-//     RetCode _read();
-//     const static size_t MAX_BUFFER_SIZE = 64 * 1024;
-//     int _fd;
-//     size_t _data_pos = 0;
-//     size_t _buf_pos = 0;
-//     size_t _buf_size = 0;
-//     char _buf[MAX_BUFFER_SIZE];
-// };
-
-// // class MmapFile {
-// // public:
-// //     MmapFile():_fd(-1):_size(0){}
-// //     ~MmapFile() {close();}
-// //     RetCode open(const string &file) {
-// //         int fd = ::open(file.c_str(), O_RDONLY);
-// //         return open(fd);
-// //     }
-// //     RetCode open(int fd) {
-// //         if (fd < 0) {
-// //             ERROR("MmapFile::open() open a wrong file.");
-// //             return RetCode::kIOError;
-// //         }
-// //         else {
-// //             _fd = fd;
-// //             size_t map_size = 100;
-// //             _ptr = mmap(NULL, map_size, PROT_READ, MAP_SHARED, _fd, 0);
-// //             if (_ptr == nullptr) {
-// //                 ERROR("MmapFile::open() mmap error.");
-// //                 return RetCode::kIOError;
-// //             }
-// //             return RetCode::kSucc;
-// //         }
-// //     }
-// //     RetCode read(char* buf, const size_t &begin, const size_t &len) {
-// //         if (_ptr == nullptr)
-// //             return RetCode::kIOError;
-// //         memcpy(buf, _ptr + begin, len);
-// //         return RetCode::kSucc;
-// //     }
-// //     size_t size() {
-// //         return _size;
-// //     }
-// //     RetCode close() {
-// //         if (_fd > 0) {
-// //             ::close(_fd);
-// //             _fd = -1;
-// //         }
-// //         return RetCode::kSucc;
-// //     }
-// // private:
-// //     char* _ptr;
-// //     size_t _size;
-// //     int _fd;
-// // };
-
-// class RandomAccessFile {
-// public:
-//     RandomAccessFile();
-//     ~RandomAccessFile();
-//     RetCode open(const string &file);
-//     RetCode open(const int &fd);
-//     RetCode read(void* buf, const size_t &begin, const size_t &len);
-// private:
-//     int _fd;
-// };
 class WritableFile {
 public:
     WritableFile(int fd):_fd(fd){}
@@ -430,8 +336,23 @@ private:
 //     size_t _size;
 //     int _fd;
 // };
-
-
+class MemTable;
+class MemoryManager {
+public:
+    MemoryManager():_head(nullptr){};
+    ~MemoryManager(){if(_head) ::free(_head);};
+    void init(int n);
+    void* allocate();
+    void free(const void * target);
+    void free(const MemTable* table, bool flag);
+private:
+    const static size_t block_size = 4096;
+    char* _head;
+    int _n;
+    std::queue<int> _free;
+    std::mutex mtx;
+    std::condition_variable cv;
+};
 
 
 int getSSTableNum();

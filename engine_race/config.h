@@ -10,11 +10,11 @@
 
 // block in a memtable
 // 64MB
-#define MEM_BLOCK_SIZE 67108864
+#define MEM_BLOCK_SIZE 400 * 1024
 
 // memtable max size
 // 500MB
-#define MEMTABLE_MAX_SIZE 51200*2//512000000
+#define MEMTABLE_MAX_SIZE 712000000//512000000
 
 
 #define LOG_FILE_NAME "DBLOG"

@@ -1,5 +1,6 @@
 // util.cc
 #include "../include/engine.h"
+#include "MemTable.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -97,6 +98,46 @@ bool testSSTable(int _id) {
     return true;
 
 
+}
+
+void MemoryManager::init(int n) {
+    _n = n;
+    if (_head != nullptr)
+        ::free(_head);
+    _head = (char*) malloc(n * block_size);
+    if (_head == nullptr) 
+        ERROR("malloc error with size %d", n * block_size);
+    else {
+        for (int i = 0; i < n; i++)
+            _free.push(i);
+    }
+}
+
+void* MemoryManager::allocate() {
+    std::unique_lock<std::mutex> guard(mtx);
+    while(_free.size() == 0) 
+        cv.wait(guard);
+    int pos = _free.front();
+    _free.pop();
+    return _head + (pos * block_size);
+}
+
+void MemoryManager::free(const void * target) {
+    std::lock_guard<std::mutex> guard(mtx);
+    long long int x = (long long int)target - (long long int)_head;
+    int num = x / block_size;
+    _free.push(num);
+    cv.notify_one();
+}
+
+void MemoryManager::free(const MemTable* table, bool flag) {
+    std::lock_guard<std::mutex> guard(mtx);
+    for (auto iter : table->index) {
+        long long int x = (long long int)iter.second.data() - (long long int)_head;
+        int num = x / block_size;
+        _free.push(num);
+    }
+    cv.notify_all();
 }
 
 }// namespace polar_race

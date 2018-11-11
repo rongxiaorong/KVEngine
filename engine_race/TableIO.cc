@@ -31,7 +31,7 @@ void writeImmutTable(MemTable* table) {
     delete tableWriter; 
     INFO("Finish writing table %d", table->_id);
    
-    // // cache the filter
+    // // cache the filter 
     // filterCache.addFilter(table->id, table->_filter);
  
     // open TableReader
@@ -46,8 +46,9 @@ void writeImmutTable(MemTable* table) {
     // if (table->immut == table) {
     //     table->immut = nullptr;
     // }
-    delete table;
     immutTableList.remove(table->_id);
+    delete table;
+    
 
     return;
 }
@@ -121,11 +122,11 @@ RetCode TableWriter::_write_data() {
         memcpy(_index[i].k, iter->first.c_str(), 8);
 
         // size_t key_size = iter->first.size();
-        size_t value_size = iter->second->size();
+        size_t value_size = iter->second.size();
         // ASSERT(_file->append((char*)&key_size, sizeof(key_size)));
         // ASSERT(_file->append(iter->first.c_str(), iter->first.size()));
         ASSERT(_file->append((char*)&value_size, sizeof(value_size)));
-        ASSERT(_file->append(iter->second->c_str(), iter->second->size()));
+        ASSERT(_file->append(iter->second.data(), iter->second.size()));
         i++;
         iter++;
     }
