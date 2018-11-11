@@ -12,7 +12,7 @@
 
 namespace polar_race {
 
-std::vector<TableReader*> SSTableMap(512);
+std::vector<TableReader*> SSTableMap(1000);
  
 
 void writeImmutTable(MemTable* table) { 

@@ -45,6 +45,8 @@ public:
         while (_on_reading != 0)
             _on_reading_cv.wait(ulock);
         memManager.free(this, true);
+        if (_mutable == this)
+            _mutable = nullptr;
     }
 
     // set a mutex for write a new entry 

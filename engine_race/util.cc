@@ -19,15 +19,15 @@ using std::cout;
 using std::string;
 
 void DEBUG(const char* format, ...) {
-    static FILE* fd = fopen("/home/francis/Git/tmp_debug_file" , "a+");
-    
-    va_list args;
-    va_start(args, format);
-    fprintf(fd,"%ld DEBUG:",time(NULL));
-    vfprintf(fd, format, args);
-    fprintf(fd,"\n");
-    fflush(fd);
-    va_end(args);
+    //static FILE* fd = fopen("/home/francis/Git/tmp_debug_file" , "a+");
+    //
+    //va_list args;
+    //va_start(args, format);
+    //fprintf(fd,"%ld DEBUG:",time(NULL));
+    //vfprintf(fd, format, args);
+    // fprintf(fd,"\n");
+    // fflush(fd);
+    //va_end(args);
 }
 
 void INFO(const char* format, ...) {
@@ -115,6 +115,8 @@ void MemoryManager::init(int n) {
 
 void* MemoryManager::allocate() {
     std::unique_lock<std::mutex> guard(mtx);
+    if (_head == nullptr)
+        init(MEM_BLOCK_SIZE);
     while(_free.size() == 0) 
         cv.wait(guard);
     int pos = _free.front();

@@ -343,6 +343,11 @@ public:
     ~MemoryManager(){if(_head) ::free(_head);};
     void init(int n);
     void* allocate();
+    void release() {
+        if (_head)
+            ::free(_head);
+        _head = nullptr;
+    }
     void free(const void * target);
     void free(const MemTable* table, bool flag);
 private:
