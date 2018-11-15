@@ -18,6 +18,28 @@ namespace polar_race {
 using std::cout;
 using std::string;
 
+std::atomic_int check(0);
+string check_info;
+void CHECKIN(const char* info) {
+    static std::mutex mtx;
+    check.fetch_add(1);
+    mtx.lock();
+    check_info.assign(info);
+    mtx.unlock();
+}
+
+void Watcher() {
+    int record = check.fetch_add(0);
+    int new_record;
+    do {
+        record = check.fetch_add(0);
+        sleep(30);
+        new_record = check.fetch_add(0);
+    } while(new_record != record);
+    INFO("Fucking locked :%s", check_info.c_str());
+    // exit(0);    
+}
+
 void DEBUG(const char* format, ...) {
     //static FILE* fd = fopen("/home/francis/Git/tmp_debug_file" , "a+");
     //
@@ -37,6 +59,7 @@ void INFO(const char* format, ...) {
     vprintf(format, args);
     cout << "\n";
     va_end(args);
+    CHECKIN(format);
 }
 
 void ERROR(const char* format, ...) {

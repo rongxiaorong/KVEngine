@@ -28,6 +28,12 @@ do {                                  \
     }                                 \
 }while(0)                             \
 
+struct IndexEntry {
+    char k[8];
+    int n;
+    int p;
+};
+
 using std::cout;
 using std::string;
 void DEBUG(const char* format, ...);
@@ -36,7 +42,8 @@ void INFO(const char* format, ...);
 
 void ERROR(const char* format, ...);
 
-
+void CHECKIN(const char* format);
+void Watcher();
 class WritableFile {
 public:
     WritableFile(int fd):_fd(fd){}
@@ -217,125 +224,6 @@ private:
     RandomAccessFile _raf;
 };
 
-// class SquentialFile {
-// public:
-//     SquentialFile(int fd):_fd(fd){}
-//     SquentialFile():_fd(-1){}
-//     ~SquentialFile() {
-//         close();
-//     }
-//     RetCode open(const string &file) {
-//         int fd = ::open(file.c_str(), O_RDONLY);
-//         return open(fd);
-//     }
-//     RetCode open(int fd) {
-//         if (fd < 0) {
-//             ERROR("SquentialFile::open() open a wrong file.");
-//             return RetCode::kIOError;
-//         }
-//         else {
-//             _fd = fd;
-//             return RetCode::kSucc;
-//         }
-//     }
-//     RetCode read(char* dst, const size_t &size, size_t &ret_size) {
-//         if (_fd < 0) {
-//             ERROR("SquentialFile::read() open a wrong file.");
-//             return RetCode::kIOError;
-//         }
-//         if (size <= _buf_size - _buf_pos) {
-//             // have cache
-//             memcpy(dst, _buf + _buf_pos, size);
-//             ret_size = size;
-//             _buf_pos += size;
-//             return RetCode::kSucc;
-//         }
-
-//         // preload the buffer
-//         _read();
-
-//         size_t temp = size;
-//         while (temp > 0 && _buf_size > 0) {
-//             // copy as much as possible
-//             size_t cp_size = std::min<size_t>(_buf_size - _buf_pos, temp);
-//             memcpy(dst, _buf + _buf_pos, cp_size);
-//             _buf_pos += cp_size;
-//             temp -= cp_size;
-//             // load again
-//             _read();
-//         }
-//         ret_size = size - temp;
-//         return RetCode::kSucc;
-//     }
-//     RetCode close() {
-//         if (_fd > 0) {
-//             ::close(_fd);
-//             _fd = 1;
-//             return RetCode::kSucc;
-//         }
-//         return kSucc;
-//     }
-// private:
-//     RetCode _read() {
-//         if (_buf_size == _buf_pos) { 
-//             _buf_size = ::read(_fd, _buf, MAX_BUFFER_SIZE);
-//             _buf_pos = 0;
-//         }
-//         return RetCode::kSucc;
-//     }
-//     const static size_t MAX_BUFFER_SIZE = 64 * 1024;
-//     int _fd;
-//     size_t _data_pos = 0;
-//     size_t _buf_pos = 0;
-//     size_t _buf_size = 0;
-//     char _buf[MAX_BUFFER_SIZE];
-// };
-
-// class MmapFile {
-// public:
-//     MmapFile():_fd(-1):_size(0){}
-//     ~MmapFile() {close();}
-//     RetCode open(const string &file) {
-//         int fd = ::open(file.c_str(), O_RDONLY);
-//         return open(fd);
-//     }
-//     RetCode open(int fd) {
-//         if (fd < 0) {
-//             ERROR("MmapFile::open() open a wrong file.");
-//             return RetCode::kIOError;
-//         }
-//         else {
-//             _fd = fd;
-//             size_t map_size = 100;
-//             _ptr = mmap(NULL, map_size, PROT_READ, MAP_SHARED, _fd, 0);
-//             if (_ptr == nullptr) {
-//                 ERROR("MmapFile::open() mmap error.");
-//                 return RetCode::kIOError;
-//             }
-//             return RetCode::kSucc;
-//         }
-//     }
-//     RetCode read(char* buf, const size_t &begin, const size_t &len) {
-//         if (_ptr == nullptr)
-//             return RetCode::kIOError;
-//         memcpy(buf, _ptr + begin, len);
-//         return RetCode::kSucc;
-//     }
-//     size_t size() {
-//         return _size;
-//     }
-//     RetCode close() {
-//         if (_fd > 0) {
-//             ::close(_fd);
-//             _fd = -1;
-//         }
-//         return RetCode::kSucc;
-//     }
-// private:
-//     char* _ptr;
-//     size_t _size;
-//     int _fd;
-// };
 class MemTable;
 class MemoryManager {
 public:

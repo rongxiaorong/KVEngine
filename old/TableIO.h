@@ -12,10 +12,6 @@ namespace polar_race {
 
 void writeImmutTable(MemTable* table);
 
-struct IndexEntry{
-    char k[8];
-    size_t p;
-};
 
 class TableWriter {
 public:
@@ -25,7 +21,7 @@ public:
     RetCode write();
     RetCode flush();
 private:
-
+ 
     MemTable* _table;
     WritableFile* _file;
     IndexEntry* _index;
@@ -61,6 +57,8 @@ public:
     RetCode read(const string& key, string* value);
 
     RetCode testMagic();
+
+    RetCode readValue(size_t offset, string* value);
 private:
 
     int _id;
@@ -76,7 +74,7 @@ private:
     std::mutex read_mtx;
     RetCode readIndex(const string& key, string* value);
     RetCode cacheIndex();
-    RetCode readValue(size_t offset, string* value);
+   
     size_t binarySearch(const string& key, const IndexEntry* _index_array, int len);
 };
 

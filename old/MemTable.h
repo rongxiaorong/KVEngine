@@ -41,10 +41,10 @@ public:
         
     }
     ~MemTable() {
-        std::unique_lock<std::mutex> ulock(_on_reading_mtx);
-        while (_on_reading != 0)
-            _on_reading_cv.wait(ulock);
-        memManager.free(this, true);
+        // std::unique_lock<std::mutex> ulock(_on_reading_mtx);
+        // while (_on_reading != 0)
+            // _on_reading_cv.wait(ulock);
+        // memManager.free(this, true);
         if (_mutable == this)
             _mutable = nullptr;
     }

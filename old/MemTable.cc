@@ -47,7 +47,7 @@ void MemTable::setImmutable() {
 }
 
 RetCode MemTable::_write(const PolarString& key, const PolarString& value) {
-    std::lock_guard<std::mutex> guard(_write_mtx);
+    
     DEBUG("write into table%d on_writing:%d",_id, _on_writing);
     string _key = key.ToString();
     if (index.find(_key) != index.end()) {
@@ -98,12 +98,27 @@ RetCode MemTable::write(const PolarString& key, const PolarString& value) {
     _on_writing_mtx.lock();
     _on_writing ++;
     _on_writing_mtx.unlock();
-    RetCode ret;
-
-    if (contains(key)) 
-        ret = _update(key, value);
-    else 
-        ret = _write(key, value);
+    RetCode ret = kSucc;
+    char* new_v = (char*)memManager.allocate();
+    memcpy(new_v, value.data(), value.size());
+    string _key(key.data(), 8);
+    // std::lock_guard<std::mutex> guard(_write_mtx);
+    _write_mtx.lock();
+    auto insert_res = index.insert(std::pair<string, PolarString>(_key, PolarString(new_v, value.size())));
+    if (insert_res.second == true) {
+        // insert successfully
+        size.fetch_add(key.size() + value.size());
+        if (size.fetch_add(0) > MEMTABLE_MAX_SIZE && _auto_write) 
+            setImmutable();
+    } else {
+        // update
+        index[_key] = PolarString(new_v, value.size());
+    }
+    _write_mtx.unlock();
+    // if (contains(key)) 
+    //     ret = _update(key, value);
+    // else 
+    //     ret = _write(key, value);
     
     _on_writing_mtx.lock();
     _on_writing --;
@@ -115,9 +130,9 @@ RetCode MemTable::write(const PolarString& key, const PolarString& value) {
 }   
 
 RetCode MemTable::read(const PolarString& key, string* value) {
-    _on_reading_mtx.lock();
-    _on_reading ++;
-    _on_reading_mtx.unlock();
+    // _on_reading_mtx.lock();
+    // _on_reading ++;
+    // _on_reading_mtx.unlock();
 
     RetCode ret;
     if (contains(key)) {
@@ -128,10 +143,10 @@ RetCode MemTable::read(const PolarString& key, string* value) {
     else 
         ret = RetCode::kNotFound;
     
-    _on_reading_mtx.lock();
-    _on_reading --;
-    _on_reading_cv.notify_all();
-    _on_reading_mtx.unlock();
+    // _on_reading_mtx.lock();
+    // _on_reading --;
+    // _on_reading_cv.notify_all();
+    // _on_reading_mtx.unlock();
 
     return ret;
 }

@@ -9,7 +9,7 @@
 #include "config.h"
 #include "TableIO.h"
 #include "DataLog.h"
-
+#include "IndexIO.h"
 namespace polar_race {
 
 std::vector<TableReader*> SSTableMap(1000);
@@ -34,10 +34,10 @@ void writeImmutTable(MemTable* table) {
     // // cache the filter 
     // filterCache.addFilter(table->id, table->_filter);
  
-    // open TableReader
-    TableReader* tableReader = new TableReader();
-    tableReader->open(table->_id);
-    SSTableMap[table->_id] = tableReader;
+    // // open TableReader
+    // TableReader* tableReader = new TableReader();
+    // tableReader->open(table->_id);
+    // SSTableMap[table->_id] = tableReader;
     
     // delete Logfile
     DataLog::deleteLog(table->_id);
@@ -118,15 +118,16 @@ RetCode TableWriter::_write_data() {
     int i = 0;
     auto iter = _table->index.begin();
     while (iter != _table->index.end()) {
-        _index[i].p = _file->size();
+        _index[i].p = (int)_file->size();
+        _index[i].n = _table->_id;
         memcpy(_index[i].k, iter->first.c_str(), 8);
-
         // size_t key_size = iter->first.size();
-        size_t value_size = iter->second.size();
+        // size_t value_size = iter->second.size();
         // ASSERT(_file->append((char*)&key_size, sizeof(key_size)));
         // ASSERT(_file->append(iter->first.c_str(), iter->first.size()));
-        ASSERT(_file->append((char*)&value_size, sizeof(value_size)));
+        // ASSERT(_file->append((char*)&value_size, sizeof(value_size)));
         ASSERT(_file->append(iter->second.data(), iter->second.size()));
+        memManager.free(iter->second.data());
         i++;
         iter++;
     }
@@ -135,6 +136,24 @@ RetCode TableWriter::_write_data() {
 
 RetCode TableWriter::_write_index() {
     ASSERT(_file->append((char *)_index, sizeof(IndexEntry) * _table->index.size()));
+
+    // write index file
+    WritableFile index_file;
+    std::stringstream sstream;
+    sstream << __engine_dir << "/" <<INDEX_FILE_NAME << IndexCount.fetch_add(1);
+    string new_index_file_name; 
+    sstream >> new_index_file_name;
+    
+    ASSERT(index_file.open(new_index_file_name.c_str()));
+    ASSERT(index_file.append((char *)_index, sizeof(IndexEntry) * _table->index.size()));
+    ASSERT(index_file.close());
+   
+    index_merger_mtx.lock();
+    IndexFile f(new_index_file_name, 1);
+    index_queue.push(f);
+    // INFO("Index queue count %d", index_queue.size());
+    index_merger_cv.notify_all();
+    index_merger_mtx.unlock();
     return RetCode::kSucc;
 
 }
@@ -214,16 +233,16 @@ RetCode TableReader::cacheIndex() {
 
 RetCode TableReader::readValue(size_t offset, string* value) {
     // size_t value_offset = _index_cache->at(key);
-    char buf[8192];
-    if (_file->read(buf, offset, 8192) != RetCode::kSucc) 
+    char buf[4096];
+    if (_file->read(buf, offset, 4096) != RetCode::kSucc) 
         return RetCode::kNotFound;
-    size_t* value_size = (size_t *)buf;
-    value->assign(buf + sizeof(size_t), *value_size);        
+    // size_t* value_size = (size_t *)buf;
+    value->assign(buf, 4096);        
     return RetCode::kSucc;
 }
 
 RetCode TableReader::read(const std::string &key, std::string *value) {
-    std::lock_guard<std::mutex> guard(read_mtx);
+    // std::lock_guard<std::mutex> guard(read_mtx);
     if (_file == nullptr) {
         ERROR("TableRader::read() read unopen file.");
         return RetCode::kIOError;
@@ -241,12 +260,12 @@ RetCode TableReader::read(const std::string &key, std::string *value) {
 
 RetCode TableReader::readIndex(const string& key, string* value) {
     static int _cache_count = 0;
-    static std::mutex _cache_count_mtx;
-    _cache_count_mtx.lock();
+    // static std::mutex _cache_count_mtx;
+    // _cache_count_mtx.lock();
     if (_cache_count < MAX_INDEX_CACHE) {
         // still can cache the index
         _cache_count ++;
-        _cache_count_mtx.unlock();
+        // _cache_count_mtx.unlock();
         ASSERT(cacheIndex());
         if (_index_cache->find(key) != _index_cache->end())
             return readValue(_index_cache->at(key), value);  
@@ -254,7 +273,7 @@ RetCode TableReader::readIndex(const string& key, string* value) {
             return kNotFound;
     } else {
         // can't cache, read the index and release then
-        _cache_count_mtx.unlock();
+        // _cache_count_mtx.unlock();
         std::vector<char> buf(_index_size);
         ASSERT(_file->read(buf.data(), _index_head, _index_size));
         IndexEntry* tmp = (IndexEntry*)buf.data();

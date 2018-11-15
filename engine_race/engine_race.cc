@@ -1,5 +1,4 @@
 // Copyright [2018] Alibaba Cloud All rights reserved
-#include <dirent.h>
 #include "engine_race.h"
 #include "util.h"
 #include "DataLog.h"
@@ -32,140 +31,98 @@ RetCode EngineRace::Open(const std::string& name, Engine** eptr) {
 
 int TABLE_COUNT = 0;
 std::string __engine_dir;
-bool _test_flag = false;
-MemoryManager memManager;
-
 EngineRace::EngineRace(const std::string& dir) {
   // initilize the engine
   __engine_dir.assign(dir);
-  INFO("Initializing...");    
-  INFO("_test_flag = %s", _test_flag?"true":"false");
-  if(!_test_flag) {
-    DIR* _dir = opendir(dir.c_str());
-    if (_dir == NULL) {
-      if (mkdir(dir.c_str(), 0777) == 0)
-        INFO("Create dir %s.", dir.c_str());
-      else _dir = opendir(".");
-    }
-    ::closedir(_dir);
-    // if (_dir != NULL) {
-    // dirent* entry;
-    // while ((entry = readdir(_dir)) != NULL) 
-    //   cout << "find dir "<< string(entry->d_name) << "\n";  
-    // }
-    // memManager.init(MEM_BLOCK_SIZE);
-
-    int sstable_num = getSSTableNum();
-    // int i = sstable_num - 1;
-    INFO("Find tables:%d",sstable_num);
-    for (int i = 0; i < sstable_num; i++) {
-        TableReader* table = new TableReader();
-        if (table->open(i) != kSucc)
-          ERROR("Can't open table%d when initializing.", i);
+  INFO("Initializing...");
+  int sstable_num = getSSTableNum();
+  // int i = sstable_num - 1;
+  DEBUG("Find tables:%d",sstable_num);
+  for (int i = 0; i < sstable_num; i++) {
+      TableReader* table = new TableReader();
+      if (table->open(i) != kSucc)
+        ERROR("Can't open table%d when initializing.", i);
+      else {
+        if (table->testMagic() == kSucc)
+          // can be used
+          SSTableMap[i] = table;  
         else {
-          if (table->testMagic() == kSucc)
-            // can be used
-            SSTableMap[i] = table;  
-          else {
-            // recover
-            delete table;
-            MemTable* memtable = new MemTable();
-            memtable->setID(i);
-            memtable->unset_auto_write();
-            if (DataLog::recover(memtable) != RetCode::kSucc) 
-              ERROR("Recover Error with table%d", i);
-            writeImmutTable(memtable);
-            table = new TableReader();
-            table->open(i);
-            SSTableMap[i] = table;
-          }
-        } 
-    }
-
-    TABLE_COUNT = sstable_num;
-    MemTable* table = new MemTable();
-    if (haveLog(sstable_num)) {
-      // table->unset_auto_write();
-      INFO("Recover Memtable from DBLOG%d", sstable_num);
-      if (DataLog::recover(table) != RetCode::kSucc) 
-        ERROR("Recover last Memtable");
-      INFO("Memtable size:%ld", table->get_size());
-    }
-  } else {
-    if (MemTable::getMemtable() == NULL) {
-      //  memManager.init(MEM_BLOCK_SIZE / 1024);
-       MemTable* table_ = new MemTable();
-    }
+          // recover
+          delete table;
+          MemTable* memtable = new MemTable();
+          memtable->setID(i);
+          memtable->unset_auto_write();
+          if (DataLog::recover(memtable) != RetCode::kSucc) 
+            ERROR("Recover Error with table%d", i);
+          if (writeImmutTable(memtable) != RetCode::kSucc) 
+            ERROR("Recover ImmutTable error");
+          table = new TableReader();
+          table->open(i);
+          SSTableMap[i] = table;
+        }
+      } 
   }
+  // while (!testSSTable(i)) {
+  //   // invalid table
+  //   INFO("Recovering table%d", i);
+  //   MemTable* table = new MemTable();
+  //   table->setID(i);
+  //   table->unset_auto_write();
+  //   if (DataLog::recover(table) != RetCode::kSucc) {
+  //     ERROR("Recover Error with table%d", i);
+  //   }
+  //   if (writeImmutTable(table) != RetCode::kSucc) {
+  //     ERROR("Recover ImmutTable error");
+  //   }
+  //   i--;
+  // }
 
+  TABLE_COUNT = sstable_num;
+  MemTable* table = new MemTable();
+  if (haveLog(sstable_num)) {
+    // table->unset_auto_write();
+    DEBUG("Recover Memtable from DBLOG%d", sstable_num);
+    if (DataLog::recover(table) != RetCode::kSucc) 
+      ERROR("Recover last Memtable");
+    DEBUG("Memtable size:%ld", table->get_size());
+  }
 }
 
 // 2. Close engine
 EngineRace::~EngineRace() {
-  INFO("Exiting...");
   MemTable* table = MemTable::getMemtable();
-  if (table->get_size() > 0) {
-    writeImmutTable(table);
+  if (writeImmutTable(table) != RetCode::kSucc) {
+    ERROR("Close Engine error");
   }
-  INFO("wait %d thread", thread_list.size());
-  int i = 0;
-  for(auto iter : thread_list) {
-    auto id = i++;
-    INFO("thread exiting %d", id);
+  for(auto iter : thread_list)
     iter->join();
-    INFO("thread exited! %d", id);
-  }
-  // for(int i = 0; i < SSTableMap.s) {
-    // if (iter)
-      // delete iter;
-  // }
-  _test_flag = true;
-  INFO("886");
 }
 
 // 3. Write a key-value pair into engine
-std::mutex engineWriteMtx;
 RetCode EngineRace::Write(const PolarString& key, const PolarString& value) {
-  std::lock_guard<std::mutex> guard(engineWriteMtx);
   MemTable* table = MemTable::getMemtable();
   ASSERT(DataLog::log(key, value, table->id()));
   ASSERT(table->write(key, value));
-  //INFO("Write key:%d size:%d",key.size(),value.size());
   return kSucc;
 }
 
 // 4. Read value of a key
 RetCode EngineRace::Read(const PolarString& key, std::string* value) {
-  static std::mutex mtx;
-  std::lock_guard<std::mutex> guard(mtx);
   MemTable* table = MemTable::getMemtable();
   if(table != nullptr)
-    if (table->read(key, value) == RetCode::kSucc) {
-      //INFO("Find key in memtable %d size:%d", table->id(), value->size());
+    if (table->read(key, value) == RetCode::kSucc)
       return kSucc;
-    }
-  // table = MemTable::getImmut();
-  // if(table != nullptr)
-  //   if (table->read(key, value) == RetCode::kSucc)
-  //     return kSucc;
+  table = MemTable::getImmut();
+  if(table != nullptr)
+    if (table->read(key, value) == RetCode::kSucc)
+      return kSucc;
   string _key = key.ToString();
-  for (int i = table->id() - 1; i >= 0; i--) {
-    MemTable* immut_table = immutTableList.get(i);
-    if (immut_table != nullptr) {
-      if (immut_table->read(key, value) == RetCode::kSucc) {
-        //INFO("Find key in ImmutTable %d", i);
-        return kSucc;
-      } else
-        continue;
-    }
+  for (int i = TABLE_COUNT; i>=0; i--) { 
     TableReader* reader = SSTableMap[i];
     if (reader != nullptr) 
-      if (reader->read(_key, value) == RetCode::kSucc) {
-        //INFO("Find key in SSTable %d", i);        
+      if (reader->read(_key, value) == RetCode::kSucc)
         return kSucc;
-      }
   }
-  // INFO("Not Fin")
   return kNotFound;
 }
 

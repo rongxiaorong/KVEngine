@@ -244,7 +244,7 @@ void sequentialRead(Engine* engine, const threadsafe_vector<std::string>& keys)
 int main()
 {
     // auto numThreads = std::thread::hardware_concurrency();
-    auto numThreads = 2;
+    auto numThreads = 1;
     std::cout << numThreads << std::endl;
     
     Engine *engine = NULL;
@@ -256,7 +256,7 @@ int main()
     // Write
     auto writeStart = std::chrono::high_resolution_clock::now();
     
-    unsigned numWrite = 400000;
+    unsigned numWrite = 100000;
     std::vector<std::thread> writers;
     for (int i = 0; i < numThreads; ++i) {
         writers.emplace_back(std::thread(write, engine, std::ref(keys), numWrite));
@@ -277,15 +277,15 @@ int main()
     keys.erase(last, keys.end());
     // std::cout << engine->size() << " == " << keys.size() << std::endl;
     
-    // delete engine;
-    // engine = nullptr;
-    // ret = Engine::Open(kEnginePath, &engine);
-    // assert (ret == kSucc);
+    delete engine;
+    engine = nullptr;
+    ret = Engine::Open(kEnginePath, &engine);
+    assert (ret == kSucc);
 
     // Random Read
     auto rreadStart = std::chrono::high_resolution_clock::now();
     
-    unsigned numRead = 400000;
+    unsigned numRead = 10000;
     std::vector<std::thread> rreaders;
     for (int i = 0; i < numThreads; ++i) {
         rreaders.emplace_back(std::thread(randomRead, engine, std::cref(keys), numRead));
@@ -318,7 +318,7 @@ int main()
     //           << std::chrono::duration<double, std::milli>(sreadEnd - sreadStart).count()
     //           << " milliseconds" << std::endl;
     
-    delete engine;
+    // delete engine;
 
     return 0;
 }
