@@ -71,6 +71,31 @@ void ERROR(const char* format, ...) {
     va_end(args);
 }
 
+string DataFileName(int i) {
+    std::stringstream sstream;
+    sstream << DATA_FILE_NAME << i;
+    string ret;
+    sstream >> ret;
+    return ret;
+}
+
+
+bool fileExist(const char* file_name) {
+    return access(file_name, F_OK) != -1;
+}
+
+bool fileExist(const char* dir, const char* file_name) {
+    string _dir(dir), _file(file_name);
+    string fullname = _dir + "/" + _file;
+    return fileExist(fullname.c_str());
+}
+
+size_t fileSize(const char* file_name) {
+    // get file size
+    struct stat statbuf;
+    stat(file_name, &statbuf);
+    return statbuf.st_size;   
+}
 }// namespace polar_race
 
 

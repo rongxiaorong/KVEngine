@@ -1,9 +1,9 @@
 #ifndef _ENGINE_RACE_CONFIG_H_
 #define _ENGINE_RACE_CONFIG_H_
 
-#define MAX_INDEX_SIZE 102400
+#define MAX_INDEX_SIZE 10
 
-#define DATA_FILE_NUM 64
+#define DATA_FILE_NUM 4
 
 #define DATA_FILE_NAME "Data"
 

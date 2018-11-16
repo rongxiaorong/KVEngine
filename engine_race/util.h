@@ -31,6 +31,7 @@ do {                                  \
 
 #pragma pack(1)
 struct IndexEntry {
+    IndexEntry(){}
     IndexEntry(const char* _key, const unsigned short &_num, const unsigned long &_offset) {
         memcpy(key, _key, 8);
         num = _num;
@@ -42,7 +43,12 @@ struct IndexEntry {
 };
 
 struct DataEntry {
-    // DataEntry(const char* _key, const unsigned)
+    DataEntry(){}
+    DataEntry(const char* _key, const char* _value, const unsigned long _stamp) {
+        memcpy(key, _key, 8);
+        memcpy(value, _value, 4096);
+        stamp = _stamp;
+    }
     unsigned long stamp;
     char key[8];
     char value[4096];
@@ -51,25 +57,11 @@ struct DataEntry {
 using std::cout;
 using std::string;
 
-string DataFileName(int i) {
-    std::stringstream sstream;
-    sstream << DATA_FILE_NAME << i;
-    string ret;
-    sstream >> ret;
-    return ret;
-}
 
-
-bool fileExist(const char* file_name) {
-    return access(file_name, F_OK) != -1;
-}
-
-bool fileExist(const char* dir, const char* file_name) {
-    string _dir(dir), _file(file_name);
-    string fullname = _dir + "/" + _file;
-    return fileExist(fullname.c_str());
-}
-
+string DataFileName(int i);
+bool fileExist(const char* file_name);
+bool fileExist(const char* dir, const char* file_name) ;
+size_t fileSize(const char* file_name);
 void DEBUG(const char* format, ...);
 
 void INFO(const char* format, ...);
