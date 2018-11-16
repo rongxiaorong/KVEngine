@@ -53,6 +53,7 @@ struct DataEntry {
     char key[8];
     char value[4096];
 };
+#pragma pack()
 
 using std::cout;
 using std::string;

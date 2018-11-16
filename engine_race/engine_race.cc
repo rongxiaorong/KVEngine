@@ -4,6 +4,7 @@
 #include "IndexFile.h"
 #include <atomic>
 #include <thread>
+#include <dirent.h>
 namespace polar_race {
 std::atomic_ulong global_count(0);
 DataFile dataFile[DATA_FILE_NUM];
@@ -25,10 +26,11 @@ Engine::~Engine() {
 void recover(unsigned long max_stamp) {
     int start[DATA_FILE_NUM] = {0};
     DataEntry entry;
+    INFO("Recovering..%ld to %ld", global_count.fetch_add(0), max_stamp);
     for (int i = 0; i < DATA_FILE_NUM; i++) {
         for (int j = 1; ;j++) {
-            if (dataFile[i].last(1, &entry) == kSucc) {
-                if (entry.stamp > global_count.fetch_add(0)) 
+            if (dataFile[i].last(j, &entry) == kSucc) {
+                if (entry.stamp >= global_count.fetch_add(0)) 
                     start[i] = j;
                 else 
                     break;
@@ -65,7 +67,7 @@ void engineInit() {
     } else {
         IndexFile index_file;
         index_file.open(false);
-        global_count.fetch_add(index_file.get_stamp());
+        global_count.fetch_add(index_file.get_stamp() + 1);
         index_file.close();
     }
 
@@ -88,6 +90,13 @@ RetCode EngineRace::Open(const std::string& name, Engine** eptr) {
     EngineRace *engine_race = new EngineRace(name);
 
     engineDir = name;
+    DIR* _dir = opendir(name.c_str());
+    if (_dir == NULL) 
+        if (mkdir(name.c_str(), 0777) == 0)
+            INFO("Create dir %s.", name.c_str());
+    else
+        closedir(_dir);
+
     engineInit();
 
     *eptr = engine_race;
@@ -97,6 +106,7 @@ RetCode EngineRace::Open(const std::string& name, Engine** eptr) {
 // 2. Close engine
 EngineRace::~EngineRace() {
     memIndex.persist(global_count.fetch_add(0) - 1);
+    end_flag = true;
     indexWriterCV.notify_all();
     index_writer->join();
     INFO("886");

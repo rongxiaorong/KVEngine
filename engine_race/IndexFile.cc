@@ -13,9 +13,10 @@ void IndexWriter() {
     INFO("IndexWriter start");
     while(true) {
         std::unique_lock<std::mutex> ulock(indexWriterMtx);
-        while (indexQueue.size() <= 0 && !end_flag) 
+        while (indexQueue.size() <= 0 && !end_flag) {
             indexWriterCV.wait_until(ulock, time_point<system_clock, milliseconds >(milliseconds(5000)));
-        INFO("Merging Index");
+            // INFO("Writer Waking... %ld",indexQueue.size());
+        }
 
         while (indexQueue.size() > 0) {
             IndexFile index_file, tmp_file;
@@ -27,7 +28,7 @@ void IndexWriter() {
             auto mem_index = queue_entry.second;
             indexQueue.pop();
             tmp_file.write_stamp(queue_entry.first);
-            
+            INFO("Merging Index %ld", queue_entry.first);
             MergeIndex(mem_index, index_file, tmp_file);
             
             index_file.close();
@@ -86,9 +87,13 @@ RetCode MemIndex::find(const char* key, IndexEntry* entry) {
 }
 
 RetCode MemIndex::insert(const char* key, const int &num, const unsigned long offset, const unsigned long stamp) {
-    std::lock_guard<std::mutex> guard(_write_mtx);
     // insert index
-    _index->insert(std::pair<string, IndexEntry>(string(key, 8), IndexEntry(key, num, offset)));
+    IndexEntry entry(key, num, offset);
+    string _key(entry.key, 8);
+    std::lock_guard<std::mutex> guard(_write_mtx);
+    auto res = _index->insert(std::pair<string, IndexEntry>(_key, entry));
+    if (res.second == false)
+        _index->at(_key) = entry;
     // make new index
     if (_index->size() >= MAX_INDEX_SIZE) {
         persist(stamp);
@@ -161,7 +166,8 @@ RetCode IndexFile::write_stamp(const unsigned long stamp) {
 }
 
 IndexEntry* IndexFile::next() {
-    if (fread(_buf, sizeof(IndexEntry), 1, _file) != sizeof(IndexEntry))
+    size_t ret = fread(_buf, 1, sizeof(IndexEntry), _file);
+    if (ret != sizeof(IndexEntry))
         return nullptr;
     else
         return _buf;
@@ -180,10 +186,10 @@ RetCode IndexReader::open() {
     size_t size = fileSize(indexfilename.c_str());
     _count = size / sizeof(IndexEntry);
 
-    _index = (IndexEntry*) mmap(NULL, _count * sizeof(IndexEntry), PROT_READ, MAP_SHARED, _fd, 0);
-    if (_index == NULL) 
+    char* tmp = (char*) mmap(NULL, _count * sizeof(IndexEntry), PROT_READ, MAP_SHARED, _fd, 0);
+    if (tmp == NULL) 
         return kIOError;
-
+    _index = (IndexEntry*) (tmp + 8);
     _isopen = true;
     return kSucc; 
 }

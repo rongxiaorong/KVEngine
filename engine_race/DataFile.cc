@@ -9,6 +9,7 @@ RetCode DataFile::open(int n) {
     int fd = ::open(name.c_str(), O_RDWR | O_CREAT | O_APPEND, 0777);
     if (fd <= 0)
         return kNotFound;
+    _fd = fd;
     if (fileExist(name.c_str()))
         _size = fileSize(name.c_str());
     if (_size % sizeof(DataEntry) != 0) {

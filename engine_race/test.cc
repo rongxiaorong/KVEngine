@@ -1,21 +1,33 @@
 #include <iostream>
 #include "engine_race.h"
-
+#include "IndexFile.h"
 using namespace polar_race;
 using namespace std;
 
 const char* kEnginePath = "/home/francis/Git/KVEngine/engine_race/build/data";
 
 string simpleString(char c, int num) {
-    string ret;
+    char buf[4096];
     for (int i = 0;i < num; i++)
-        ret += c;
-    return ret;
+        buf[i] = c;
+    return string(buf, num);
 }
 
 int main(){
     Engine *engine = NULL;
     RetCode ret = Engine::Open(kEnginePath, &engine);
     // assert (ret == kSucc);
-    engine->Write(PolarString(simpleString('A', 8)), PolarString(simpleString('A', 4096)));
+    for (char i = 'A'; i<='Z';i++) {    
+        string key = simpleString(i, 8);
+        string value = simpleString(i, 4096);
+        string v;
+        
+        engine->Write(key,value);
+        // engine->Read(PolarString(key), &v);
+        // if (value != v)
+        //     cout << "Wrong value\n";
+    }
+    delete engine;
+    // indexWriterCV.notify_all();
+    while(1);
 }
