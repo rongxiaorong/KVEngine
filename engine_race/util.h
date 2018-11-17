@@ -37,6 +37,11 @@ struct IndexEntry {
         num = _num;
         offset = _offset;
     }
+    IndexEntry(const IndexEntry& entry) {
+        memcpy(key, entry.key, 8);
+        num = entry.num;
+        offset = entry.offset;
+    }
     char key[8];
     unsigned short num;
     unsigned long offset;
@@ -48,6 +53,11 @@ struct DataEntry {
         memcpy(key, _key, 8);
         memcpy(value, _value, 4096);
         stamp = _stamp;
+    }
+    DataEntry(const DataEntry& entry) {
+        memcpy(key, entry.key, 8);
+        memcpy(value, entry.value, 4096);
+        stamp = entry.stamp;
     }
     unsigned long stamp;
     char key[8];
@@ -251,6 +261,31 @@ private:
     RandomAccessFile _raf;
 };
 
+template<class T>
+class BlockedQueue {
+public:
+    void push(const T &entry) {
+        std::lock_guard<std::mutex> guard(_mtx);
+        _queue.push(entry);
+        _cv.notify_all();
+    }
+    T top_pop() {
+        std::unique_lock<std::mutex> ulock(_mtx);
+        while(_queue.size() <= 0)
+            _cv.wait(ulock);
+        T entry = _queue.front();
+        _queue.pop();
+        return entry;
+    }
+    size_t size() {
+        std::lock_guard<std::mutex> guard(_mtx); 
+        return _queue.size();
+    }
+private:
+    std::queue<T> _queue;
+    std::condition_variable _cv;
+    std::mutex _mtx;
+};
 
 }// namespace polar_race
 

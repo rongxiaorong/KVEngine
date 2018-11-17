@@ -1,6 +1,7 @@
 #include "DataFile.h"
 #include "config.h"
 #include "util.h"
+#include "IndexFile.h"
 
 namespace polar_race {
 RetCode DataFile::open(int n) {
@@ -13,7 +14,8 @@ RetCode DataFile::open(int n) {
     if (fileExist(name.c_str()))
         _size = fileSize(name.c_str());
     if (_size % sizeof(DataEntry) != 0) {
-        lseek(_fd, -(_size % sizeof(DataEntry)), SEEK_END);        
+        lseek(_fd, -(_size % sizeof(DataEntry)), SEEK_END);
+        _size -= _size % sizeof(DataEntry);         
     }
     return kSucc;
 }
@@ -21,6 +23,7 @@ RetCode DataFile::open(int n) {
 RetCode DataFile::write(const char* key, const char* value, const unsigned long stamp, unsigned long &offset) {
     std::lock_guard<std::mutex> guard(_write_lock);
     offset = _size;
+    MemIndexInsert(key, this->_id, offset, stamp);
     DataEntry entry(key, value, stamp);
     size_t ret_size = ::write(_fd, &entry, sizeof(entry));
     _size += ret_size;

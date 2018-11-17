@@ -27,6 +27,7 @@ private:
 };
 extern DataFile dataFile[DATA_FILE_NUM];
 
+RetCode writeTable(const char* key, const char* value, const unsigned long stamp, unsigned long *offset);
 } // namespace polar_race
 
 

@@ -10,6 +10,7 @@ std::atomic_ulong global_count(0);
 DataFile dataFile[DATA_FILE_NUM];
 string engineDir;
 std::thread* index_writer = nullptr;
+std::thread* mem_writer = nullptr;
 MemIndex memIndex;
 IndexReader indexReader;
 RetCode Engine::Open(const std::string& name, Engine** eptr) {
@@ -24,36 +25,50 @@ Engine::~Engine() {
  */
 
 void recover(unsigned long max_stamp) {
-    int start[DATA_FILE_NUM] = {0};
+    // int start[DATA_FILE_NUM] = {0};
     DataEntry entry;
     INFO("Recovering..%ld to %ld", global_count.fetch_add(0), max_stamp);
-    for (int i = 0; i < DATA_FILE_NUM; i++) {
-        for (int j = 1; ;j++) {
-            if (dataFile[i].last(j, &entry) == kSucc) {
-                if (entry.stamp >= global_count.fetch_add(0)) 
-                    start[i] = j;
-                else 
-                    break;
-            } else
-                break;
-        }
+    for(;global_count.fetch_add(0) <= max_stamp; global_count.fetch_add(1)) {
+        int i = global_count.fetch_add(0) % DATA_FILE_NUM;
+        int count = dataFile[i].size() / sizeof(DataEntry);
+        int target = count - global_count.fetch_add(0) / DATA_FILE_NUM;
+        dataFile[i].last(target, &entry);
+        memIndex.insert(entry.key, i, dataFile[i].size() - target * sizeof(DataEntry), entry.stamp);
+        if (entry.stamp != global_count.fetch_add(0))
+            ERROR("recover count:%ld, find table%d.last(%d) size=%ld, stamp=%ld", 
+                global_count.fetch_add(0), i, target, dataFile[i].size(), entry.stamp
+            );
+        // global_count.fetch_add(1);
     }
-    while (global_count.fetch_add(0) <= max_stamp) {
-        for (int i = 0; i < DATA_FILE_NUM; i++) {
-            if (start[i] <= 0) continue;
-            dataFile[i].last(start[i], &entry) ;
-            if (entry.stamp == global_count.fetch_add(0)) {
-                memIndex.insert(entry.key, i, dataFile[i].size() - start[i] * sizeof(DataEntry), entry.stamp);
-                global_count.fetch_add(1);
-                start[i] --;
-            }
-        }
-    }
+    // for (int i = 0; i < DATA_FILE_NUM; i++) {
+    //     for (int j = 1; ;j++) {
+    //         if (dataFile[i].last(j, &entry) == kSucc) {
+    //             if (entry.stamp >= global_count.fetch_add(0)) 
+    //                 start[i] = j;
+    //             else 
+    //                 break;
+    //         } else
+    //             break;
+    //     }
+    // }
+    // while (global_count.fetch_add(0) <= max_stamp) {
+    //     for (int i = 0; i < DATA_FILE_NUM; i++) {
+    //         if (start[i] <= 0) continue;
+    //         dataFile[i].last(start[i], &entry) ;
+    //         if (entry.stamp == global_count.fetch_add(0)) {
+
+    //             memIndex.insert(entry.key, i, dataFile[i].size() - start[i] * sizeof(DataEntry), entry.stamp);
+    //             global_count.fetch_add(1);
+    //             start[i] --;
+    //         }
+    //     }
+    // }
 }
 
 void engineInit() {
 
     index_writer = new std::thread(IndexWriter);
+    mem_writer = new std::thread(MemIndexWriter);
 
     for (int i = 0; i < DATA_FILE_NUM; i++)
         dataFile[i].open(i);
@@ -67,7 +82,9 @@ void engineInit() {
     } else {
         IndexFile index_file;
         index_file.open(false);
-        global_count.fetch_add(index_file.get_stamp() + 1);
+        global_count.fetch_add(index_file.get_stamp());
+        if (global_count.fetch_add(0) != 0)
+            global_count.fetch_add(1);
         index_file.close();
     }
 
@@ -91,9 +108,10 @@ RetCode EngineRace::Open(const std::string& name, Engine** eptr) {
 
     engineDir = name;
     DIR* _dir = opendir(name.c_str());
-    if (_dir == NULL) 
+    if (_dir == NULL) {
         if (mkdir(name.c_str(), 0777) == 0)
             INFO("Create dir %s.", name.c_str());
+    }
     else
         closedir(_dir);
 
@@ -105,10 +123,14 @@ RetCode EngineRace::Open(const std::string& name, Engine** eptr) {
 
 // 2. Close engine
 EngineRace::~EngineRace() {
-    memIndex.persist(global_count.fetch_add(0) - 1);
+    
     end_flag = true;
-    indexWriterCV.notify_all();
+    indexWriterCV.notify_one();
+    memIndexWriterCV.notify_one();
+    // memIndex
+    memIndex.persist(global_count.fetch_add(0) - 1);
     index_writer->join();
+
     INFO("886");
 }
 
@@ -120,7 +142,7 @@ RetCode EngineRace::Write(const PolarString& key, const PolarString& value) {
     int id = stamp % DATA_FILE_NUM;
     
     ASSERT(dataFile[id].write(key.data(), value.data(), stamp, offset));
-    ASSERT(memIndex.insert(key.data(), id, offset, stamp));
+    // ASSERT(memIndex.insert(key.data(), id, offset, stamp));
 
     return kSucc;
 }

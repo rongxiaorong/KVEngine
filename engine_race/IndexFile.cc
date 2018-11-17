@@ -14,7 +14,7 @@ void IndexWriter() {
     while(true) {
         std::unique_lock<std::mutex> ulock(indexWriterMtx);
         while (indexQueue.size() <= 0 && !end_flag) {
-            indexWriterCV.wait_until(ulock, time_point<system_clock, milliseconds >(milliseconds(5000)));
+            indexWriterCV.wait_until(ulock, time_point<system_clock, milliseconds >(milliseconds(500)));
             // INFO("Writer Waking... %ld",indexQueue.size());
         }
 
@@ -224,6 +224,29 @@ IndexEntry* IndexReader::find(const PolarString& key) {
         //         return nullptr;
         // }
     }       
+}
+
+BlockedQueue<std::pair<unsigned long, IndexEntry> > blockQueue;
+void MemIndexInsert(const char* key, const int &num, const unsigned long offset, const unsigned long stamp) {
+    blockQueue.push(std::pair<unsigned long, IndexEntry>(stamp, IndexEntry(key, num, offset)));
+}
+
+std::condition_variable memIndexWriterCV;
+void MemIndexWriter() {
+    using namespace std::chrono;
+    std::mutex _mtx;
+    while(1) {
+        std::unique_lock<std::mutex> ulock(_mtx);
+        while (blockQueue.size() <= 0 && !end_flag) {
+            memIndexWriterCV.wait_until(ulock, time_point<system_clock, milliseconds >(milliseconds(500)));
+            // INFO("Writer Waking... %ld",indexQueue.size());
+        }
+        while(blockQueue.size() > 0) {
+            std::pair<unsigned long, IndexEntry> entry = blockQueue.top_pop();
+            memIndex.insert(entry.second.key, entry.second.num, entry.second.offset, entry.first);
+        }
+
+    }
 }
 
 } // namespace polar_race

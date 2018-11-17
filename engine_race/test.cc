@@ -15,19 +15,19 @@ string simpleString(char c, int num) {
 
 int main(){
     Engine *engine = NULL;
-    RetCode ret = Engine::Open(kEnginePath, &engine);
+    Engine::Open(kEnginePath, &engine);
     // assert (ret == kSucc);
-    for (char i = 'A'; i<='Z';i++) {    
+    for (char i = 'A'; i<='A' + 11;i++) {    
         string key = simpleString(i, 8);
         string value = simpleString(i, 4096);
         string v;
         
-        engine->Write(key,value);
-        // engine->Read(PolarString(key), &v);
+        // engine->Write(key,value);
+        engine->Read(PolarString(key), &v);
         // if (value != v)
         //     cout << "Wrong value\n";
     }
-    delete engine;
+    // delete engine;
     // indexWriterCV.notify_all();
     while(1);
 }

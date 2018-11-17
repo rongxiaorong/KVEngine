@@ -70,6 +70,14 @@ void IndexWriter();
 
 void MergeIndex(const std::map<string, IndexEntry>* _mem_index, IndexFile& _index_file, IndexFile& _tmp_file);
 
+extern std::mutex memIndexWriter_mtx;
+extern std::condition_variable memIndexWriterCV;
+void MemIndexWriter();
+
+void MemIndexInsert(const char* key, const int &num, const unsigned long offset, const unsigned long stamp);
+
+extern BlockedQueue<std::pair<unsigned long, IndexEntry> > blockQueue;
+
 } // namespace polar_race
 
 
