@@ -50,10 +50,15 @@ RetCode DataFile::readValue(const unsigned long &offset, char* value) {
 }
 RetCode DataFile::last(int n, DataEntry *entry) {
     unsigned long offset = _size - n * sizeof(DataEntry);
-    if (offset < 0)
+    if (_size < n * sizeof(DataEntry))
         return kNotFound;
     return read(offset, entry);
 }
-
+RetCode DataFile::first(int n, DataEntry *entry) {
+    unsigned long offset = n * sizeof(DataEntry);
+    if (offset > _size)
+        return kNotFound;
+    return read(offset, entry);
+}
 
 } // namespace polar_race

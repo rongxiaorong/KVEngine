@@ -30,16 +30,19 @@ void recover(unsigned long max_stamp) {
     INFO("Recovering..%ld to %ld", global_count.fetch_add(0), max_stamp);
     for(;global_count.fetch_add(0) <= max_stamp; global_count.fetch_add(1)) {
         int i = global_count.fetch_add(0) % DATA_FILE_NUM;
-        int count = dataFile[i].size() / sizeof(DataEntry);
-        int target = count - global_count.fetch_add(0) / DATA_FILE_NUM;
-        dataFile[i].last(target, &entry);
-        memIndex.insert(entry.key, i, dataFile[i].size() - target * sizeof(DataEntry), entry.stamp);
+        // int count = dataFile[i].size() / sizeof(DataEntry);
+        // int target = count - global_count.fetch_add(0) / DATA_FILE_NUM;
+        // dataFile[i].last(target, &entry);
+        int target = global_count.fetch_add(0) / DATA_FILE_NUM;
+        dataFile[i].first(target, &entry);
+        memIndex.insert(entry.key, i, target * sizeof(DataEntry), entry.stamp);
         if (entry.stamp != global_count.fetch_add(0))
             ERROR("recover count:%ld, find table%d.last(%d) size=%ld, stamp=%ld", 
                 global_count.fetch_add(0), i, target, dataFile[i].size(), entry.stamp
             );
         // global_count.fetch_add(1);
     }
+    INFO("finish recover");
     // for (int i = 0; i < DATA_FILE_NUM; i++) {
     //     for (int j = 1; ;j++) {
     //         if (dataFile[i].last(j, &entry) == kSucc) {

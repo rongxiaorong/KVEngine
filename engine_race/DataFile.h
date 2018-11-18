@@ -19,6 +19,7 @@ public:
     RetCode read(const unsigned long &offset, DataEntry *entry);
     RetCode readValue(const unsigned long &offset, char *value);
     RetCode last(int n, DataEntry *entry);
+    RetCode first(int n, DataEntry *entry);
 private:
     int _id = -1;
     int _fd = 0;
