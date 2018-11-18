@@ -20,13 +20,20 @@ void IndexWriter() {
 
         while (indexQueue.size() > 0) {
             IndexFile index_file, tmp_file;
+            auto queue_entry = indexQueue.top();
+            auto mem_index = queue_entry.second;
+            if (mem_index->size() <= 0) {
+                indexQueue.pop();
+                delete mem_index;
+                continue;
+            }
             if (index_file.open(false) != kSucc)
                 ERROR("Can't open index file");
             if (tmp_file.open(true) != kSucc)
                 ERROR("Can't open tmp index file");
-            auto queue_entry = indexQueue.top();
-            auto mem_index = queue_entry.second;
+            
             indexQueue.pop();
+            
             tmp_file.write_stamp(queue_entry.first);
             INFO("Merging Index %ld", queue_entry.first);
             MergeIndex(mem_index, index_file, tmp_file);
@@ -232,12 +239,13 @@ void MemIndexInsert(const char* key, const int &num, const unsigned long offset,
 }
 
 std::condition_variable memIndexWriterCV;
+bool mem_end_flag = false;
 void MemIndexWriter() {
     using namespace std::chrono;
     std::mutex _mtx;
     while(1) {
         std::unique_lock<std::mutex> ulock(_mtx);
-        while (blockQueue.size() <= 0 && !end_flag) {
+        while (blockQueue.size() <= 0 && !mem_end_flag) {
             memIndexWriterCV.wait_until(ulock, time_point<system_clock, milliseconds >(milliseconds(500)));
             // INFO("Writer Waking... %ld",indexQueue.size());
         }
@@ -245,7 +253,10 @@ void MemIndexWriter() {
             std::pair<unsigned long, IndexEntry> entry = blockQueue.top_pop();
             memIndex.insert(entry.second.key, entry.second.num, entry.second.offset, entry.first);
         }
-
+        if (mem_end_flag) {
+            INFO("MemIndex Writer exit.");
+            break;
+        }
     }
 }
 

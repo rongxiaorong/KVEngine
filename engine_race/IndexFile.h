@@ -72,6 +72,7 @@ void MergeIndex(const std::map<string, IndexEntry>* _mem_index, IndexFile& _inde
 
 extern std::mutex memIndexWriter_mtx;
 extern std::condition_variable memIndexWriterCV;
+extern bool mem_end_flag;
 void MemIndexWriter();
 
 void MemIndexInsert(const char* key, const int &num, const unsigned long offset, const unsigned long stamp);

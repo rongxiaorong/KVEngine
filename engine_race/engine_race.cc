@@ -91,8 +91,10 @@ void engineInit() {
     unsigned long max_stamp = 0;
     for (int i = 0; i < DATA_FILE_NUM; i++) {
         DataEntry entry;
-        if (dataFile[i].last(1, &entry) == kSucc) 
+        if (dataFile[i].last(1, &entry) == kSucc) {
             max_stamp = std::max<unsigned long>(max_stamp, entry.stamp);
+            INFO("dataFile%d size:%ld last_stamp:%ld", i, dataFile[i].size(), entry.stamp);
+        }
     }
 
     if (max_stamp > global_count.fetch_add(0))
@@ -124,11 +126,13 @@ RetCode EngineRace::Open(const std::string& name, Engine** eptr) {
 // 2. Close engine
 EngineRace::~EngineRace() {
     
+    mem_end_flag = true;
+    memIndexWriterCV.notify_one();
+    mem_writer->join();
+
+    memIndex.persist(global_count.fetch_add(0) - 1);
     end_flag = true;
     indexWriterCV.notify_one();
-    memIndexWriterCV.notify_one();
-    // memIndex
-    memIndex.persist(global_count.fetch_add(0) - 1);
     index_writer->join();
 
     INFO("886");
