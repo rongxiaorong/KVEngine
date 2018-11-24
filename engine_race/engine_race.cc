@@ -11,9 +11,9 @@ DataFile dataFile[DATA_FILE_NUM];
 string engineDir;
 std::thread* index_writer = nullptr;
 std::thread* mem_writer = nullptr;
-MemIndex memIndex;
+// MemIndex memIndex;
 AvlIndexFile avlIndexFile;
-IndexReader indexReader;
+// IndexReader indexReader;
 DataCache dataCache[MAX_CACHE_SIZE];
 RetCode Engine::Open(const std::string& name, Engine** eptr) {
     return EngineRace::Open(name, eptr);
@@ -52,8 +52,6 @@ void engineInit() {
     // }
     for (int i = 0; i < DATA_FILE_NUM; i++)
         dataFile[i].open(i);
-    for (int i = 0; i < MAX_CACHE_SIZE; i++)
-        dataCache[i].init();
     // if (!fileExist(engineDir.c_str(), INDEX_FILE_NAME)) {
     //     IndexFile index_file;
     //     index_file.open(true);
@@ -83,7 +81,11 @@ void engineInit() {
         }
         
     }
-
+    INFO("Global_count %ld", global_count.fetch_add(0));
+    if (max_stamp > 10) { 
+        for (int i = 0; i < MAX_CACHE_SIZE; i++)
+            dataCache[i].init();
+    }
     if (max_stamp > global_count.fetch_add(0) && max_stamp < 10000000)
         recover(max_stamp);
     
@@ -133,6 +135,7 @@ EngineRace::~EngineRace() {
     //     global_buffer->persist();
     // }
     INFO("886");
+    exit(-1);
     // if (evalue_test)
     //     exit(0);
 }

@@ -275,16 +275,21 @@ template<class T>
 class BlockedQueue {
 public:
     void push(const T &entry) {
-        std::lock_guard<std::mutex> guard(_mtx);
+        std::unique_lock<std::mutex> ulock(_mtx);
+        while(_queue.size() >= MAX_BLOCKED_INDEX)
+            _full_cv.wait(ulock);
         _queue.push(entry);
-        _cv.notify_all();
+        
+        _empty_cv.notify_all();
     }
     T top_pop() {
         std::unique_lock<std::mutex> ulock(_mtx);
         while(_queue.size() <= 0)
-            _cv.wait(ulock);
+            _empty_cv.wait(ulock);
         T entry = _queue.front();
         _queue.pop();
+
+        _full_cv.notify_all();
         return entry;
     }
     size_t size() {
@@ -293,7 +298,8 @@ public:
     }
 private:
     std::queue<T> _queue;
-    std::condition_variable _cv;
+    std::condition_variable _empty_cv;
+    std::condition_variable _full_cv;
     std::mutex _mtx;
 };
 
