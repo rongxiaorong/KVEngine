@@ -2,7 +2,7 @@
 #include "config.h"
 #include "util.h"
 #include "IndexFile.h"
-
+// #include <errno.h> 
 namespace polar_race {
 RetCode DataFile::open(int n) {
     _id = n;
@@ -21,21 +21,29 @@ RetCode DataFile::open(int n) {
 }
 
 RetCode DataFile::write(const char* key, const char* value, const unsigned long stamp, unsigned long &offset) {
-    std::lock_guard<std::mutex> guard(_write_lock);
+    std::unique_lock<std::mutex> guard(_write_lock);
+    while(_size != (stamp / DATA_FILE_NUM) * sizeof(DataEntry))
+        _cv.wait(guard);
+
     offset = _size;
     MemIndexInsert(key, this->_id, offset, stamp);
     DataEntry entry(key, value, stamp);
     size_t ret_size = ::write(_fd, &entry, sizeof(entry));
     _size += ret_size;
+    
+    _cv.notify_all();
     if (ret_size == sizeof(entry))
         return kSucc;
-    else
+    else {
+        // extern int errno;
+        ERROR("Write Error with size:%ld stamp:%ld errorn:%d", ret_size, stamp, 0);
         return kIOError;
+    }
 }
 
 RetCode DataFile::read(const unsigned long &offset, DataEntry *entry) {
-    size_t ret_size = pread(_fd, entry, sizeof(IndexEntry), offset);
-    if (ret_size == sizeof(IndexEntry))
+    size_t ret_size = pread(_fd, entry, sizeof(DataEntry), offset);
+    if (ret_size == sizeof(DataEntry))
         return kSucc;
     else
         return kIOError;
@@ -47,7 +55,7 @@ RetCode DataFile::readValue(const unsigned long &offset, char* value) {
         return kSucc;
     else
         return kIOError;
-}
+} 
 RetCode DataFile::last(int n, DataEntry *entry) {
     unsigned long offset = _size - n * sizeof(DataEntry);
     if (_size < n * sizeof(DataEntry))

@@ -7,10 +7,11 @@ namespace polar_race {
 std::priority_queue<std::pair<unsigned long, std::map<string, IndexEntry>* > > indexQueue;
 std::condition_variable indexWriterCV;
 std::mutex indexWriterMtx;
-bool end_flag;
+bool end_flag = false;
 void IndexWriter() {
     using namespace std::chrono;
     INFO("IndexWriter start");
+    IndexBuffer* indexBuffer = nullptr;
     while(true) {
         std::unique_lock<std::mutex> ulock(indexWriterMtx);
         while (indexQueue.size() <= 0 && !end_flag) {
@@ -19,7 +20,7 @@ void IndexWriter() {
         }
 
         while (indexQueue.size() > 0) {
-            IndexFile index_file, tmp_file;
+            
             auto queue_entry = indexQueue.top();
             auto mem_index = queue_entry.second;
             if (mem_index->size() <= 0) {
@@ -27,63 +28,96 @@ void IndexWriter() {
                 delete mem_index;
                 continue;
             }
-            if (index_file.open(false) != kSucc)
-                ERROR("Can't open index file");
-            if (tmp_file.open(true) != kSucc)
-                ERROR("Can't open tmp index file");
-            
             indexQueue.pop();
-            
-            tmp_file.write_stamp(queue_entry.first);
-            INFO("Merging Index %ld", queue_entry.first);
-            MergeIndex(mem_index, index_file, tmp_file);
-            
-            index_file.close();
-            tmp_file.close();
-            index_file.remove();
-            tmp_file.toIndexFile();
+            INFO("merge index %d", queue_entry.first);
+            if (indexBuffer == nullptr) {
+                indexBuffer = new IndexBuffer(mem_index->size());
+                for(auto iter : *mem_index) 
+                    indexBuffer->append(iter.second);
+            } else {
+                IndexBuffer* tmpBuffer = new IndexBuffer(indexBuffer->size() + mem_index->size());
+                MergeIndex(mem_index, indexBuffer, tmpBuffer);
+                delete indexBuffer;
+                indexBuffer = tmpBuffer;
+            }
+
             delete mem_index;
         }
 
         if (end_flag) {
+            INFO("Persisting index");
+            if (indexBuffer)
+                if(indexBuffer->persist() != kSucc)
+                    ERROR("fail to persist");
             INFO("IndexWriter exit.");
             break;
         }
     }
 }
-
-void MergeIndex(const std::map<string, IndexEntry>* _mem_index, IndexFile& _index_file, IndexFile& _tmp_file) {
-    IndexEntry *fe = _index_file.next();
+void MergeIndex(const std::map<string, IndexEntry>* _mem_index, IndexBuffer *_index_buf, IndexBuffer * _tmp_buf) {
+    IndexEntry* fe = _index_buf->next();
     auto me = _mem_index->begin();
     while (fe != nullptr && me != _mem_index->end()) {
         PolarString fk(fe->key, 8), mk(me->second.key, 8);
         int cmp = fk.compare(mk);
         if (cmp == 0) {
             // equal
-            _tmp_file.write(me->second);
-            fe = _index_file.next();
+            _tmp_buf->append(me->second);
+            fe = _index_buf->next();
             me ++;
         } 
         else if (cmp < 0) {
             // f < m
-            _tmp_file.write(*fe);
-            fe = _index_file.next();
+            _tmp_buf->append(*fe);
+            fe = _index_buf->next();
         } 
         else if (cmp > 0) {
             // f > m
-            _tmp_file.write(me->second);
+            _tmp_buf->append(me->second);
             me ++;
         }
     }
     while (fe != nullptr) {
-        _tmp_file.write(*fe);
-        fe = _index_file.next();
+        _tmp_buf->append(*fe);
+        fe = _index_buf->next();
     }
     while (me != _mem_index->end()) {
-        _tmp_file.write(me->second);
+        _tmp_buf->append(me->second);
         me ++;
     }
-}
+} 
+// void MergeIndex(const std::map<string, IndexEntry>* _mem_index, IndexFile& _index_file, IndexFile& _tmp_file) {
+//     IndexEntry *fe = _index_file.next();
+//     auto me = _mem_index->begin();
+//     while (fe != nullptr && me != _mem_index->end()) {
+//         PolarString fk(fe->key, 8), mk(me->second.key, 8);
+//         int cmp = fk.compare(mk);
+//         if (cmp == 0) {
+//             // equal
+//             _tmp_file.write(me->second);
+//             fe = _index_file.next();
+//             me ++;
+//         } 
+//         else if (cmp < 0) {
+//             // f < m
+//             _tmp_file.write(*fe);
+//             fe = _index_file.next();
+//         } 
+//         else if (cmp > 0) {
+//             // f > m
+//             _tmp_file.write(me->second);
+//             me ++;
+//         }
+//     }
+//     while (fe != nullptr) {
+//         _tmp_file.write(*fe);
+//         fe = _index_file.next();
+//     }
+//     while (me != _mem_index->end()) {
+//         _tmp_file.write(me->second);
+//         me ++;
+//     }
+// }
 
 RetCode MemIndex::find(const char* key, IndexEntry* entry) {    
     auto iter = _index->find(string(key, 8));
@@ -198,6 +232,7 @@ RetCode IndexReader::open() {
         return kIOError;
     _index = (IndexEntry*) (tmp + 8);
     _isopen = true;
+    INFO("Open indexReader %d", _count);
     return kSucc; 
 }
 
@@ -221,21 +256,20 @@ IndexEntry* IndexReader::find(const PolarString& key) {
     if (!_isopen)
         return nullptr;
     else {
-        // if(_hash_table == nullptr)  
         return binarySearch(key);
-        // else {
-        //     int idx =  _hash_table->find(key.data(), _index);
-        //     if (idx != -1)
-        //         return &(_index[idx]);
-        //     else
-        //         return nullptr;
-        // }
     }       
 }
 
 BlockedQueue<std::pair<unsigned long, IndexEntry> > blockQueue;
+extern bool evalue_test;
+IndexBuffer* global_buffer = nullptr;
 void MemIndexInsert(const char* key, const int &num, const unsigned long offset, const unsigned long stamp) {
+    // if (evalue_test) 
+    //     global_buffer->write(IndexEntry(key, num, offset), stamp);
+    // else
     blockQueue.push(std::pair<unsigned long, IndexEntry>(stamp, IndexEntry(key, num, offset)));
+    //     memIndex.insert(key, num, offset,stamp);
+
 }
 
 std::condition_variable memIndexWriterCV;
@@ -251,7 +285,8 @@ void MemIndexWriter() {
         }
         while(blockQueue.size() > 0) {
             std::pair<unsigned long, IndexEntry> entry = blockQueue.top_pop();
-            memIndex.insert(entry.second.key, entry.second.num, entry.second.offset, entry.first);
+            // memIndex.insert(entry.second.key, entry.second.num, entry.second.offset, entry.first);
+            avlIndexFile.insert(entry.second.key, entry.second.num, entry.second.offset, entry.first);
         }
         if (mem_end_flag) {
             INFO("MemIndex Writer exit.");
@@ -259,5 +294,79 @@ void MemIndexWriter() {
         }
     }
 }
+template<>
+AvlNode<IndexEntry>* NodePointer<IndexEntry>::head = nullptr;
+RetCode AvlIndexFile::open() {
+    tree.init(INDEX_ENTRIES);
+    if (fileExist(engineDir.c_str(), INDEX_FILE_NAME)) {
+        // open and recover index file here
+        string file_name = engineDir + "/" + INDEX_FILE_NAME;
+        int fd = ::open(file_name.c_str(), O_RDONLY);
+        if (fd <= 0) {
+            INFO("Can't recover index AvlIndexFile");
+            return kNotFound;
+        }
+        unsigned long buf[3];
+        ::read(fd, &buf, sizeof(unsigned long) * 3);
+        index_stamp = buf[0];
+        size = buf[1];
+        tree.setRoot(buf[2]);
+        ::read(fd, tree.data(), sizeof(AvlNode<IndexEntry>) * size);
+        ::close(fd);
+        return kSucc;
+    } else {
+        INFO("Can't open index avlIndexFile");
+        index_stamp = 0;
+        size = 0;
+
+        return kSucc;
+    }
+}
+
+RetCode AvlIndexFile::save() {
+    string file_name = engineDir + "/" + INDEX_FILE_NAME;
+    if (fileExist(engineDir.c_str(), INDEX_FILE_NAME)) {
+        // remove file
+        ::remove(file_name.c_str());
+    }
+    int fd = ::open(file_name.c_str(), O_WRONLY|O_CREAT|O_APPEND, 0777);
+    unsigned long buf[3];
+    buf[0] = index_stamp;
+    buf[1] = size;
+    buf[2] = tree.getRoot();
+    ::write(fd, buf, sizeof(unsigned long) * 3);
+    ::write(fd, tree.data(), sizeof(AvlNode<IndexEntry>) * size);
+    INFO("save index file stamp:%ld size:%ld", index_stamp, size);
+    return kSucc;
+}
+
+RetCode AvlIndexFile::insert(const char* key, const int &num, const unsigned long offset, const unsigned long stamp) {
+    IndexEntry entry(key, num, offset);
+    tree.insert(entry);
+    if (stamp > index_stamp)
+        index_stamp = stamp;
+    size = tree.size();
+    return kSucc;
+}
+
+IndexEntry* AvlIndexFile::find(const PolarString& key) {
+    IndexEntry entry(key.data(), 0, 0);
+    auto result = tree.find(entry);
+    if (result == nullptr)
+        return nullptr;
+    else
+        return &result->data;
+}
+
+void AvlIndexFile::foreach(void (*func)(const IndexEntry &key, RaceVisitor &visitor), RaceVisitor &visitor) {
+    tree.foreach(func, visitor);
+}
+  
+void AvlIndexFile::foreach(const PolarString &begin, const PolarString &end, void (*func)(const IndexEntry &key, RaceVisitor &visitor), RaceVisitor &visitor) {
+    IndexEntry _begin(begin.data(), 0, 0), _end(end.data(), 0, 0);
+    tree.foreach(_begin, _end, func, visitor);
+}
+
+
 
 } // namespace polar_race

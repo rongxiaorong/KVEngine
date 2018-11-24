@@ -35,16 +35,26 @@ struct IndexEntry {
     IndexEntry(const char* _key, const unsigned short &_num, const unsigned long &_offset) {
         memcpy(key, _key, 8);
         num = _num;
-        offset = _offset;
+        offset = (unsigned int)_offset;
     }
     IndexEntry(const IndexEntry& entry) {
         memcpy(key, entry.key, 8);
         num = entry.num;
         offset = entry.offset;
     }
+    bool operator < (const IndexEntry & x) const {
+        return PolarString(key, 8).compare(PolarString(x.key, 8)) < 0;
+    }
+    bool operator == (const IndexEntry & x) const {
+        return PolarString(key, 8).compare(PolarString(x.key, 8)) == 0;
+    }
+    bool operator > (const IndexEntry & x) const {
+        return PolarString(key, 8).compare(PolarString(x.key, 8)) > 0;
+    }
+
     char key[8];
     unsigned short num;
-    unsigned long offset;
+    unsigned int offset;
 };
 
 struct DataEntry {
