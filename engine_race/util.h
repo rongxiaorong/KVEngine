@@ -19,7 +19,7 @@
 
 #include "config.h"
 namespace polar_race {
-
+using std::string;
 #define ASSERT(A)                     \
 do {                                  \
     RetCode ret;                      \
@@ -29,7 +29,7 @@ do {                                  \
     }                                 \
 }while(0)                             \
 
-#pragma pack(1)
+// #pragma pack(1)
 struct IndexEntry {
     IndexEntry(){}
     IndexEntry(const char* _key, const unsigned short &_num, const unsigned long &_offset) {
@@ -42,21 +42,23 @@ struct IndexEntry {
         num = entry.num;
         offset = entry.offset;
     }
+   
     bool operator < (const IndexEntry & x) const {
-        return PolarString(key, 8).compare(PolarString(x.key, 8)) < 0;
+        // return string(key, 8) < string(x.key, 8);
+        return memcmp(key, x.key, 8) < 0;
     }
     bool operator == (const IndexEntry & x) const {
-        return PolarString(key, 8).compare(PolarString(x.key, 8)) == 0;
+        return memcmp(key, x.key, 8) == 0;
     }
     bool operator > (const IndexEntry & x) const {
-        return PolarString(key, 8).compare(PolarString(x.key, 8)) > 0;
+        // sizeof(IndexEntry)
+        return memcmp(key, x.key, 8) > 0;
     }
-
     char key[8];
     unsigned short num;
     unsigned int offset;
 };
-
+#pragma pack(1)
 struct DataEntry {
     DataEntry(){}
     DataEntry(const char* _key, const char* _value, const unsigned long _stamp) {
@@ -275,21 +277,16 @@ template<class T>
 class BlockedQueue {
 public:
     void push(const T &entry) {
-        std::unique_lock<std::mutex> ulock(_mtx);
-        while(_queue.size() >= MAX_BLOCKED_INDEX)
-            _full_cv.wait(ulock);
+        std::lock_guard<std::mutex> guard(_mtx);
         _queue.push(entry);
-        
-        _empty_cv.notify_all();
+        _cv.notify_all();
     }
     T top_pop() {
         std::unique_lock<std::mutex> ulock(_mtx);
         while(_queue.size() <= 0)
-            _empty_cv.wait(ulock);
+            _cv.wait(ulock);
         T entry = _queue.front();
         _queue.pop();
-
-        _full_cv.notify_all();
         return entry;
     }
     size_t size() {
@@ -298,8 +295,7 @@ public:
     }
 private:
     std::queue<T> _queue;
-    std::condition_variable _empty_cv;
-    std::condition_variable _full_cv;
+    std::condition_variable _cv;
     std::mutex _mtx;
 };
 

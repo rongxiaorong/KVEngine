@@ -3,6 +3,7 @@
 
 #include "../include/engine.h"
 #include "util.h"
+#include <thread>
 #include <atomic>
 namespace polar_race {
 class RaceVisitor {
@@ -23,28 +24,59 @@ public:
     DataCache(){
         on_reading.fetch_and(0);
     }
-    void init() {
-        value = (char*) malloc(4096);
+    void init(int n) {
+        // value = (char*) malloc(4096);
+        value = nullptr;
+        id = n;
     }
     void cache(const IndexEntry &_key);
-    void read(const IndexEntry &_key, string* _value);
-    void readCache(string* _value);
+    void read(const IndexEntry &_key, char* _value);
+    void readCache(char* _value);
     static bool sameKey(const char* k1, const char* k2) {
-        return PolarString(k1, 8).compare(PolarString(k2, 8)) == 0;
+        return memcmp(k1, k2, 8) == 0;
     }
 private:
+    int id;
     char key[8];
-    char* value;
+    char* value = nullptr;
     bool enable = true;
     std::mutex enable_mtx;
     std::condition_variable enable_cv;
     std::mutex key_mtx;
-
+ 
     std::atomic_int on_reading;
     std::condition_variable on_reading_cv;
 };
 
 extern DataCache dataCache[MAX_CACHE_SIZE];
+
+class DataCache2 {
+public:
+    void read(const IndexEntry &_key, int slot, char* _value);
+    void cache();
+    void cache(int n);
+    void run();
+    bool isRun = false;
+private:
+
+    std::thread* cacher = nullptr;
+    typedef char ValueBuffer[4096];
+    typedef char KeyBuffer[8];
+    KeyBuffer* kbuf = nullptr;
+    ValueBuffer* vbuf = nullptr;
+    std::mutex *mtx = nullptr;
+    std::condition_variable *empty_cv = nullptr;
+    std::condition_variable *full_cv = nullptr;
+    int* readers = nullptr;
+    bool sameKey(const char* k1, const char* k2) {
+        return memcmp(k1, k2 ,8) == 0;
+    }
+};
+
+extern DataCache2 dataCache2;
+
+void runDataCache2(int n);
+
 } // namespace polar_race
 
 

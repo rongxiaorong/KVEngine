@@ -37,7 +37,7 @@ void Watcher() {
         new_record = check.fetch_add(0);
     } while(new_record != record);
     INFO("Fucking locked :%s", check_info.c_str());
-    // exit(0);    
+    exit(-1);    
 }
 
 void DEBUG(const char* format, ...) {

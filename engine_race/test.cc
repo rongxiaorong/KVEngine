@@ -14,29 +14,31 @@ string simpleString(char c, int num) {
 }
 
 void testRange(Engine* engine) {
-    
+
 }
 
 int main(){
-    // Engine *engine = NULL;
-    // Engine::Open(kEnginePath, &engine);
-    // // assert (ret == kSucc);
-    // for (char i = 'A'; i < 'A' + 20;i++) {    
-    //     string key = simpleString(i, 8);
-    //     string value = simpleString(i, 4096);
-    //     string v;
-        
-    //     // engine->Write(key,value);
+    Engine *engine = NULL;
+    Engine::Open(kEnginePath, &engine);
+    // assert (ret == kSucc);
+    for (char i = 'A' + 19; i >= 'A';i--) {    
+        string key = simpleString(i, 8);
+        string value = simpleString(i, 4096);
+        string v;
+        // cout << "write " << i << "\n";
+        // engine->Write(key,value);
 
-    //     // engine->Read(PolarString(key), &v);
-    //     // if (value != v)
-    //     //     cout << "Wrong value\n";
-    // }
-    // Visitor visitor;
-    // engine->Range("", "", visitor);
-    // cout << "ok\n";
-    // delete engine;
-    cout << sizeof(AvlNode<IndexEntry>);
+        // engine->Read(PolarString(key), &v);
+        // if (value != v)
+        //     cout << "Wrong value\n";
+        // else
+        //     cout << "find " << i << "\n";
+    }
+    Visitor visitor;
+    engine->Range("", "", visitor);
+    cout << "ok\n";
+    delete engine;
+    // cout << sizeof(AvlNode<IndexEntry>);
     // indexWriterCV.notify_all();
     while(1);
 }

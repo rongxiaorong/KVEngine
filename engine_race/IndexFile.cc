@@ -227,21 +227,37 @@ RetCode IndexReader::open() {
     size_t size = fileSize(indexfilename.c_str());
     _count = size / sizeof(IndexEntry);
 
-    char* tmp = (char*) mmap(NULL, _count * sizeof(IndexEntry), PROT_READ, MAP_SHARED, _fd, 0);
-    if (tmp == NULL) 
-        return kIOError;
-    _index = (IndexEntry*) (tmp + 8);
+    // char* tmp = (char*) mmap(NULL, _count * sizeof(IndexEntry) + 8, PROT_READ, MAP_SHARED, _fd, 0);
+    // if (tmp == NULL) 
+    //     return kIOError;
+    _index = (IndexEntry*)malloc(_count * sizeof(IndexEntry));
+    unsigned long temp;
+    read(_fd, &temp, 8);
+    read(_fd, _index, _count * sizeof(IndexEntry));
+    // _index = (IndexEntry*) (tmp + 8);
     _isopen = true;
-    INFO("Open indexReader %d", _count);
+    INFO("IndexReader Count : %ld, temp : %ld", _count, temp);
     return kSucc; 
+}
+
+int keyCmp(const char* k1, const char* k2) {
+    // for (int i = 0;i < 8; i++) {
+    //     if (k1[i] < k2[i])
+    //         return -1;
+    //     if (k1[i] > k2[i])
+    //         return 1;
+    // }
+    // return 0;
+    return memcmp(k1, k2, 8);
 }
 
 IndexEntry* IndexReader::binarySearch(const PolarString& key) {
     int left = 0, right = _count- 1;
-    PolarString _k(key);
+    // string _k(key.data(), 8);
     while (left <= right) {
         int mid = left + ((right - left) >> 1);
-        int cmp = PolarString(_index[mid].key, 8).compare(_k);
+        // int cmp = string(_index[mid].key, 8).compare(_k);
+        int cmp = keyCmp(_index[mid].key, key.data());
         if (cmp > 0) // mid > _k
             right = mid - 1; 
         else if (cmp < 0) // mid < _k
@@ -251,7 +267,21 @@ IndexEntry* IndexReader::binarySearch(const PolarString& key) {
     }
     return nullptr;
 }
-
+// IndexEntry* IndexReader::binarySearch(const PolarString& key) {
+//     int left = 0, right = _size - 1;
+//     PolarString _k(key);
+//     while (left <= right) {
+//         int mid = left + ((right - left) >> 1);
+//         int cmp = PolarString(_index[mid].k, 8).compare(_k);
+//         if (cmp > 0) // mid > _k
+//             right = mid - 1; 
+//         else if (cmp < 0) // mid < _k
+//             left = mid + 1;
+//         else 
+//             return &(_index[mid]);
+//     }
+//     return nullptr;
+// }
 IndexEntry* IndexReader::find(const PolarString& key) {
     if (!_isopen)
         return nullptr;
@@ -264,11 +294,12 @@ BlockedQueue<std::pair<unsigned long, IndexEntry> > blockQueue;
 extern bool evalue_test;
 IndexBuffer* global_buffer = nullptr;
 void MemIndexInsert(const char* key, const int &num, const unsigned long offset, const unsigned long stamp) {
-    // if (evalue_test) 
-    //     global_buffer->write(IndexEntry(key, num, offset), stamp);
-    // else
-    blockQueue.push(std::pair<unsigned long, IndexEntry>(stamp, IndexEntry(key, num, offset)));
-    //     memIndex.insert(key, num, offset,stamp);
+    if (evalue_test) 
+        // global_buffer->write(IndexEntry(key, num, offset), stamp);
+        global_buffer->append(IndexEntry(key, num, offset));
+    else
+        // blockQueue.push(std::pair<unsigned long, IndexEntry>(stamp, IndexEntry(key, num, offset)));
+        memIndex.insert(key, num, offset,stamp);
 
 }
 
@@ -285,8 +316,7 @@ void MemIndexWriter() {
         }
         while(blockQueue.size() > 0) {
             std::pair<unsigned long, IndexEntry> entry = blockQueue.top_pop();
-            // memIndex.insert(entry.second.key, entry.second.num, entry.second.offset, entry.first);
-            avlIndexFile.insert(entry.second.key, entry.second.num, entry.second.offset, entry.first);
+            memIndex.insert(entry.second.key, entry.second.num, entry.second.offset, entry.first);
         }
         if (mem_end_flag) {
             INFO("MemIndex Writer exit.");
@@ -294,79 +324,13 @@ void MemIndexWriter() {
         }
     }
 }
-template<>
-AvlNode<IndexEntry>* NodePointer<IndexEntry>::head = nullptr;
-RetCode AvlIndexFile::open() {
-    tree.init(INDEX_ENTRIES);
-    if (fileExist(engineDir.c_str(), INDEX_FILE_NAME)) {
-        // open and recover index file here
-        string file_name = engineDir + "/" + INDEX_FILE_NAME;
-        int fd = ::open(file_name.c_str(), O_RDONLY);
-        if (fd <= 0) {
-            INFO("Can't recover index AvlIndexFile");
-            return kNotFound;
-        }
-        unsigned long buf[3];
-        ::read(fd, &buf, sizeof(unsigned long) * 3);
-        index_stamp = buf[0];
-        size = buf[1];
-        tree.setRoot(buf[2]);
-        ::read(fd, tree.data(), sizeof(AvlNode<IndexEntry>) * size);
-        ::close(fd);
-        return kSucc;
-    } else {
-        INFO("Can't open index avlIndexFile");
-        index_stamp = 0;
-        size = 0;
 
-        return kSucc;
-    }
+void IndexBuffer::_merge(int begin, int mid, int end) {
+        // extern IndexBuffer* global_buffer;
+        global_buffer->merge(begin, mid, end);
 }
-
-RetCode AvlIndexFile::save() {
-    string file_name = engineDir + "/" + INDEX_FILE_NAME;
-    if (fileExist(engineDir.c_str(), INDEX_FILE_NAME)) {
-        // remove file
-        ::remove(file_name.c_str());
-    }
-    int fd = ::open(file_name.c_str(), O_WRONLY|O_CREAT|O_APPEND, 0777);
-    unsigned long buf[3];
-    buf[0] = index_stamp;
-    buf[1] = size;
-    buf[2] = tree.getRoot();
-    ::write(fd, buf, sizeof(unsigned long) * 3);
-    ::write(fd, tree.data(), sizeof(AvlNode<IndexEntry>) * size);
-    INFO("save index file stamp:%ld size:%ld", index_stamp, size);
-    return kSucc;
+void IndexBuffer::_sort(int begin, int end) {
+        // extern IndexBuffer* global_buffer;
+        global_buffer->sort(begin, end);
 }
-
-RetCode AvlIndexFile::insert(const char* key, const int &num, const unsigned long offset, const unsigned long stamp) {
-    IndexEntry entry(key, num, offset);
-    tree.insert(entry);
-    if (stamp > index_stamp)
-        index_stamp = stamp;
-    size = tree.size();
-    return kSucc;
-}
-
-IndexEntry* AvlIndexFile::find(const PolarString& key) {
-    IndexEntry entry(key.data(), 0, 0);
-    auto result = tree.find(entry);
-    if (result == nullptr)
-        return nullptr;
-    else
-        return &result->data;
-}
-
-void AvlIndexFile::foreach(void (*func)(const IndexEntry &key, RaceVisitor &visitor), RaceVisitor &visitor) {
-    tree.foreach(func, visitor);
-}
-  
-void AvlIndexFile::foreach(const PolarString &begin, const PolarString &end, void (*func)(const IndexEntry &key, RaceVisitor &visitor), RaceVisitor &visitor) {
-    IndexEntry _begin(begin.data(), 0, 0), _end(end.data(), 0, 0);
-    tree.foreach(_begin, _end, func, visitor);
-}
-
-
-
 } // namespace polar_race

@@ -3,7 +3,7 @@
 
 #include "util.h"
 #include "config.h"
-
+#include <atomic>
 namespace polar_race {
 
 
@@ -21,9 +21,11 @@ public:
     RetCode last(int n, DataEntry *entry);
     RetCode first(int n, DataEntry *entry);
 private: 
+    char* write_buf = nullptr;
     int _id = -1;
     int _fd = 0;
     unsigned long _size = 0;
+    int _count;
     std::mutex _write_lock;
     std::condition_variable _cv;
 };

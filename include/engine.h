@@ -3,7 +3,7 @@
 #define INCLUDE_ENGINE_H_
 #include <string>
 #include "polar_string.h"
-
+#include "iostream"
 namespace polar_race {
 
 enum RetCode {
@@ -24,7 +24,11 @@ class Visitor {
  public:
   virtual ~Visitor() {}
 
-  virtual void Visit(const PolarString &key, const PolarString &value) = 0;
+  virtual void Visit(const PolarString &key, const PolarString &value) {
+      std::cout << key.data()[0] << "\n";
+    // if (x )
+  };
+  int x = 0;
 };
 
 class Engine {
